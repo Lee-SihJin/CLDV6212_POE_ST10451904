@@ -1,0 +1,30 @@
+﻿@{
+    ViewData["Title"] = "Order Confirmation";
+    var orderId = ViewBag.OrderId;
+}
+
+<div class="container mt-4 text-center">
+    <div class="card">
+        <div class="card-body py-5">
+            <div class="mb-4">
+                <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+            </div>
+            <h2 class="text-success">Order Confirmed!</h2>
+            <p class="lead">Thank you for your purchase. Your order has been successfully placed.</p>
+
+            <div class="alert alert-info mt-4">
+                <h5>Order ID: <code>@orderId</code></h5>
+                <p class="mb-0">We've sent a confirmation email with your order details.</p>
+            </div>
+
+            <div class="mt-4">
+                <a asp-controller="Home" asp-action="Index" class="btn btn-primary me-2">
+                    <i class="fas fa-home"></i> Back to Home
+                </a>
+                <a asp-controller="Product" asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="fas fa-shopping-bag"></i> Continue Shopping
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

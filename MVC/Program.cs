@@ -1,5 +1,6 @@
-using ABCRetailers.Services;
 using System.Globalization;
+using ABCRetailers.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace ABCRetailers
 {
@@ -33,6 +34,22 @@ namespace ABCRetailers
             // Add logging
             builder.Services.AddLogging();
 
+            builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<IShoppingCartService, ShoppingCartService>();
+
+            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(options =>
+                {
+                    options.LoginPath = "/Auth/Login";
+                    options.AccessDeniedPath = "/Auth/AccessDenied";
+                    options.ExpireTimeSpan = TimeSpan.FromHours(24);
+                });
+
+            builder.Services.AddAuthorization(options =>
+            {
+                options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+                options.AddPolicy("CustomerOnly", policy => policy.RequireRole("Customer"));
+            });
             var app = builder.Build();
 
             // Set culture for decimal handling (fixes price issue)

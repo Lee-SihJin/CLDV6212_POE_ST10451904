@@ -1,0 +1,122 @@
+﻿@model ABCRetailers.Models.Product
+@{
+    ViewData["Title"] = Model.ProductName;
+}
+
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-action="Index">Products</a></li>
+            <li class="breadcrumb-item active">@Model.ProductName</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-6">
+            @if (!string.IsNullOrEmpty(Model.ImageUrl))
+            {
+                <img src="@Model.ImageUrl" class="img-fluid rounded" alt="@Model.ProductName"
+                     style="max-height: 500px; object-fit: cover;">
+            }
+            else
+            {
+                <div class="bg-light d-flex align-items-center justify-content-center rounded"
+                     style="height: 400px;">
+                    <i class="fas fa-image fa-5x text-muted"></i>
+                </div>
+            }
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-title h2">@Model.ProductName</h1>
+
+                    <div class="mb-3">
+                        <span class="h3 text-success">@Model.Price.ToString("C")</span>
+                        <span class="badge @(Model.StockAvailable > 10 ? "bg-success" : Model.StockAvailable > 0 ? "bg-warning" : "bg-danger") ms-2">
+                            @if (Model.StockAvailable > 10)
+                            {
+                                <text>In Stock</text>
+                            }
+                            else if (Model.StockAvailable > 0)
+                            {
+                                <text>Only @Model.StockAvailable left</text>
+                            }
+                            else
+                            {
+                                <text>Out of Stock</text>
+                            }
+                        </span>
+                    </div>
+
+                    <p class="card-text lead">@Model.Description</p>
+
+                    <div class="mb-4">
+                        <h5>Product Details</h5>
+                        <ul class="list-unstyled">
+                            <li><strong>Product ID:</strong> <code>@Model.ProductId.Substring(0, 8)...</code></li>
+                            <li><strong>Available Stock:</strong> @Model.StockAvailable units</li>
+                        </ul>
+                    </div>
+
+                    @if (Model.StockAvailable > 0)
+                    {
+                        <form method="post" asp-controller="Cart" asp-action="AddToCart" class="row g-3">
+                            <input type="hidden" name="productId" value="@Model.RowKey" />
+                            <input type="hidden" name="productName" value="@Model.ProductName" />
+                            <input type="hidden" name="unitPrice" value="@Model.Price" />
+
+                            <div class="col-auto">
+                                <label for="quantity" class="col-form-label"><strong>Quantity:</strong></label>
+                            </div>
+                            <div class="col-auto">
+                                <input type="number" name="quantity" id="quantity"
+                                       class="form-control" value="1" min="1" max="@Model.StockAvailable"
+                                       style="width: 80px;">
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="fas fa-cart-plus"></i> Add to Cart
+                                </button>
+                            </div>
+                        </form>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            This product is currently out of stock. Please check back later.
+                        </div>
+                    }
+
+                    <div class="mt-4">
+                        <a asp-action="Index" class="btn btn-outline-primary">
+                            <i class="fas fa-arrow-left"></i> Continue Shopping
+                        </a>
+                        <a asp-controller="Cart" asp-action="Index" class="btn btn-primary ms-2">
+                            <i class="fas fa-shopping-cart"></i> View Cart
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Update max quantity based on stock
+        document.addEventListener('DOMContentLoaded', function() {
+            const quantityInput = document.getElementById('quantity');
+            const stockAvailable = @Model.StockAvailable;
+
+            quantityInput.addEventListener('change', function() {
+                if (this.value > stockAvailable) {
+                    this.value = stockAvailable;
+                    alert(`Only ${stockAvailable} items available in stock.`);
+                }
+            });
+        });
+    </script>
+}

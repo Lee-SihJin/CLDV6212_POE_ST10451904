@@ -1,0 +1,98 @@
+﻿@model ABCRetailers.Models.LoginModel
+@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0 text-center">
+                        <i class="fas fa-sign-in-alt"></i> Login to ABC Retailers
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Login" method="post">
+                        <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
+
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Username" class="form-label">Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-user"></i>
+                                </span>
+                                <input asp-for="Username" class="form-control" placeholder="Enter your username" />
+                            </div>
+                            <span asp-validation-for="Username" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Password" class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" />
+                            </div>
+                            <span asp-validation-for="Password" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input asp-for="RememberMe" class="form-check-input" />
+                            <label asp-for="RememberMe" class="form-check-label">Remember me</label>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="mt-4 text-center">
+                        <p class="mb-2">Don't have an account?</p>
+                        <a asp-action="Register" class="btn btn-outline-secondary">
+                            <i class="fas fa-user-plus"></i> Create New Account
+                        </a>
+                    </div>
+
+                    <!-- Demo Accounts -->
+                    <div class="mt-4">
+                        <div class="alert alert-info">
+                            <h6 class="alert-heading"><i class="fas fa-info-circle"></i> Demo Accounts</h6>
+                            <div class="small">
+                                <strong>Admin:</strong> admin / Admin123!<br>
+                                <strong>Customer:</strong> john.customer / Customer123!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-fill demo accounts for testing
+            const urlParams = new URLSearchParams(window.location.search);
+            const demo = urlParams.get('demo');
+
+            if (demo === 'admin') {
+                document.getElementById('Username').value = 'admin';
+                document.getElementById('Password').value = 'Admin123!';
+            } else if (demo === 'customer') {
+                document.getElementById('Username').value = 'john.customer';
+                document.getElementById('Password').value = 'Customer123!';
+            }
+        });
+    </script>
+}
