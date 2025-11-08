@@ -1,5 +1,4 @@
-﻿
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -8,9 +7,10 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
-    <!-- Views/Shared/_Layout.cshtml -->
     <header>
         <nav class="navbar navbar-expand-sm navbar-dark bg-dark">
             <div class="container-fluid">
@@ -21,31 +21,16 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
+                    <!-- Customer Navigation -->
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">
+                            <a class="nav-link" asp-controller="Home" asp-action="Index">
                                 <i class="fas fa-home"></i> Home
                             </a>
                         </li>
-                        <!-- Add Store Link for Customers -->
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Store" asp-action="Index">
                                 <i class="fas fa-shopping-bag"></i> Shop
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Customer" asp-action="Index">
-                                <i class="fas fa-users"></i> Customers
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Product" asp-action="Index">
-                                <i class="fas fa-box"></i> Products (Manage)
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Order" asp-action="Index">
-                                <i class="fas fa-shopping-cart"></i> Orders (Manage)
                             </a>
                         </li>
                         <li class="nav-item">
@@ -54,9 +39,65 @@
                                 <span id="cartItemCount" class="badge bg-primary rounded-pill">0</span>
                             </a>
                         </li>
+                        <li>
+                            <a class="nav-link" asp-controller="Upload" asp-action="Index">
+                                <i class="fas fa-upload"></i> File Upload
+                            </a>
+                        </li>
                     </ul>
 
-                    <!-- Authentication Section -->
+                    <!-- Manager Navigation (Only for Admin/Manager users) -->
+                    @if (User.Identity.IsAuthenticated && (User.IsInRole("Admin") || User.IsInRole("Manager")))
+                    {
+                        <ul class="navbar-nav me-3">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle text-warning" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-cog"></i> Management
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" asp-controller="Product" asp-action="Index">
+                                            <i class="fas fa-box"></i> Manage Products
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" asp-controller="Customer" asp-action="Index">
+                                            <i class="fas fa-users"></i> Manage Customers
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" asp-controller="Order" asp-action="Index">
+                                            <i class="fas fa-shopping-cart"></i> Manage Orders
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    }
+                    else if (User.Identity.IsAuthenticated)
+                    {
+                        <ul class="navbar-nav me-3">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle text-warning" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-cog"></i> Customer
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" asp-controller="Cart" asp-action="Index">
+                                            <i class="fas fa-shopping-cart"></i> My Cart
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" asp-controller="Cart" asp-action="OrderHistory">
+                                            <i class="fas fa-history"></i> Order History
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    }
+
+                    <!-- User Authentication Section -->
                     <ul class="navbar-nav">
                         @if (User.Identity.IsAuthenticated)
                         {
@@ -65,19 +106,7 @@
                                     <i class="fas fa-user"></i> @User.Identity.Name
                                 </a>
                                 <ul class="dropdown-menu">
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="Cart" asp-action="Index">
-                                            <i class="fas fa-shopping-cart"></i> Shopping Cart
-                                        </a>
-                                    </li>
-                                    @if (User.IsInRole("Admin"))
-                                    {
-                                        <li>
-                                            <a class="dropdown-item" href="#">
-                                                <i class="fas fa-cog"></i> Admin Panel
-                                            </a>
-                                        </li>
-                                    }
+                                    
                                     <li><hr class="dropdown-divider"></li>
                                     <li>
                                         <form asp-controller="Auth" asp-action="Logout" method="post">
@@ -92,12 +121,14 @@
                         else
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-controller="Auth" asp-action="Login">
+                                <a class="nav-link" asp-controller="Auth" asp-action="Login"
+                                   asp-route-returnUrl="@Context.Request.Path">
                                     <i class="fas fa-sign-in-alt"></i> Login
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" asp-controller="Auth" asp-action="Register">
+                                <a class="nav-link" asp-controller="Auth" asp-action="Register"
+                                   asp-route-returnUrl="@Context.Request.Path">
                                     <i class="fas fa-user-plus"></i> Register
                                 </a>
                             </li>
@@ -146,6 +177,36 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
+    <!-- Cart badge update script -->
+    <script>
+        async function updateCartBadge() {
+            try {
+                const response = await fetch('/Cart/GetCartItemCount');
+                if (response.ok) {
+                    const count = await response.json();
+                    const badge = document.getElementById('cartItemCount');
+                    if (count > 0) {
+                        badge.textContent = count;
+                        badge.style.display = 'inline';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating cart badge:', error);
+            }
+        }
+
+        // Update cart badge on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCartBadge();
+
+            // Update cart badge every 30 seconds
+            setInterval(updateCartBadge, 30000);
+        });
+    </script>
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -1,0 +1,84 @@
+﻿@model List<ABCRetailers.Models.CustomerOrder>
+@{
+    ViewData["Title"] = "Order History";
+}
+
+<div class="container mt-4">
+    <h2><i class="fas fa-history"></i> Order History</h2>
+    <p class="text-muted">View your past orders and their status</p>
+
+    @if (Model.Any())
+    {
+        foreach (var order in Model)
+        {
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-0">Order #@order.OrderId.ToString().Substring(0, 8).ToUpper()</h5>
+                        <small class="text-muted">Placed on @order.OrderDate.ToString("MMMM dd, yyyy 'at' h:mm tt")</small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6>Items:</h6>
+                            @foreach (var item in order.Items)
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div>
+                                        <strong>@item.ProductName</strong>
+                                        <small class="text-muted">x @item.Quantity</small>
+                                    </div>
+                                    <div>@item.TotalPrice.ToString("C")</div>
+                                </div>
+                            }
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6>Order Summary</h6>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Total:</span>
+                                        <strong class="text-success">@order.TotalAmount.ToString("C")</strong>
+                                    </div>
+                                    <hr>
+                                    <div>
+                                        <small class="text-muted">Shipping to:</small>
+                                        <p class="small mb-0">@order.ShippingAddress</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No Orders Found</h4>
+                <p class="text-muted">You haven't placed any orders yet.</p>
+                <a asp-controller="Store" asp-action="Index" class="btn btn-primary">
+                    <i class="fas fa-shopping-bag"></i> Start Shopping
+                </a>
+            </div>
+        </div>
+    }
+</div>
+
+@functions {
+    string GetStatusBadgeClass(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "completed" => "bg-success",
+            "processing" => "bg-warning",
+            "pending" => "bg-info",
+            "cancelled" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}

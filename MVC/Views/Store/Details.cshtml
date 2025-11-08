@@ -59,28 +59,38 @@
                             <li><strong>Available Stock:</strong> @Model.StockAvailable units</li>
                         </ul>
                     </div>
-
                     @if (Model.StockAvailable > 0)
                     {
-                        <form method="post" asp-controller="Cart" asp-action="AddToCart" class="row g-3">
-                            <input type="hidden" name="productId" value="@Model.RowKey" />
-                            <input type="hidden" name="productName" value="@Model.ProductName" />
-                            <input type="hidden" name="unitPrice" value="@Model.Price" />
+                        if (User.Identity.IsAuthenticated)
+                        {
+                            <form method="post" asp-controller="Cart" asp-action="AddToCart" class="row g-3">
+                                <input type="hidden" name="productId" value="@Model.RowKey" />
+                                <input type="hidden" name="productName" value="@Model.ProductName" />
+                                <input type="hidden" name="unitPrice" value="@Model.Price" />
 
-                            <div class="col-auto">
-                                <label for="quantity" class="col-form-label"><strong>Quantity:</strong></label>
-                            </div>
-                            <div class="col-auto">
-                                <input type="number" name="quantity" id="quantity"
-                                       class="form-control" value="1" min="1" max="@Model.StockAvailable"
-                                       style="width: 80px;">
-                            </div>
-                            <div class="col-auto">
-                                <button type="submit" class="btn btn-success btn-lg">
-                                    <i class="fas fa-cart-plus"></i> Add to Cart
-                                </button>
-                            </div>
-                        </form>
+                                <div class="col-auto">
+                                    <label for="quantity" class="col-form-label"><strong>Quantity:</strong></label>
+                                </div>
+                                <div class="col-auto">
+                                    <input type="number" name="quantity" id="quantity"
+                                    class="form-control" value="1" min="1" max="@Model.StockAvailable"
+                                    style="width: 80px;">
+                                </div>
+                                <div class="col-auto">
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="fas fa-cart-plus"></i> Add to Cart
+                                    </button>
+                                </div>
+                            </form>
+                        }
+                        else
+                        {
+                            <a asp-controller="Auth" asp-action="Login"
+                               asp-route-returnUrl="@Context.Request.Path"
+                               class="btn btn-success w-100">
+                                <i class="fas fa-cart-plus"></i> Login to Add to Cart
+                            </a>
+                        }
                     }
                     else
                     {

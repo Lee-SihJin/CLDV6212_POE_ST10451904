@@ -13,5 +13,8 @@ namespace ABCRetailers.Services
         Task RemoveFromCartAsync(Guid cartItemId);
         Task ClearCartAsync(Guid userId);
         Task<CustomerOrder> CheckoutAsync(Guid userId, string shippingAddress);
+        Task<CustomerOrder> CompleteOrderAsync(Guid userId, CompleteOrderViewModel orderDetails);
+        Task<List<CustomerOrder>> GetUserOrdersAsync(Guid userId);
+        Task<CustomerOrder?> GetOrderByIdAsync(Guid orderId);
     }
 }

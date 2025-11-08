@@ -176,8 +176,7 @@ namespace ABCRetailers.Services
                     TotalAmount = cart.Items.Sum(item => item.UnitPrice * item.Quantity),
                     Status = "Submitted",
                     ShippingAddress = shippingAddress,
-                    OrderDate = DateTime.UtcNow,
-                    PaymentStatus = "Pending"
+                    OrderDate = DateTime.UtcNow
                 };
 
                 await connection.ExecuteAsync(
@@ -240,6 +239,144 @@ namespace ABCRetailers.Services
                 _logger.LogError(ex, "Error during checkout for user {UserId}", userId);
                 throw;
             }
+        }
+
+        public async Task<CustomerOrder> CompleteOrderAsync(Guid userId, CompleteOrderViewModel orderDetails)
+        {
+            var cart = await GetCartAsync(userId);
+            if (!cart.Items.Any())
+                throw new InvalidOperationException("Cart is empty");
+
+            await using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            await using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // Create order in SQL database
+                var order = new CustomerOrder
+                {
+                    OrderId = Guid.NewGuid(),
+                    UserId = userId,
+                    TotalAmount = cart.TotalPrice,
+                    Status = "Completed",
+                    ShippingAddress = orderDetails.ShippingAddress,
+                    OrderDate = DateTime.UtcNow,
+                    PaymentStatus = "Not Required" // Added missing property
+                };
+
+                // Fixed SQL query with correct parameters
+                await connection.ExecuteAsync(
+                    @"INSERT INTO Orders (OrderId, UserId, TotalAmount, Status, ShippingAddress, OrderDate, PaymentStatus) 
+              VALUES (@OrderId, @UserId, @TotalAmount, @Status, @ShippingAddress, @OrderDate, @PaymentStatus)",
+                    order, transaction);
+
+                // Add order items
+                foreach (var item in cart.Items)
+                {
+                    var orderItem = new OrderItem
+                    {
+                        OrderItemId = Guid.NewGuid(),
+                        OrderId = order.OrderId,
+                        ProductId = item.ProductId,
+                        ProductName = item.ProductName,
+                        Quantity = item.Quantity,
+                        UnitPrice = item.UnitPrice,
+                        TotalPrice = item.TotalPrice
+                    };
+
+                    await connection.ExecuteAsync(
+                        @"INSERT INTO OrderItems (OrderItemId, OrderId, ProductId, ProductName, Quantity, UnitPrice, TotalPrice) 
+                  VALUES (@OrderItemId, @OrderId, @ProductId, @ProductName, @Quantity, @UnitPrice, @TotalPrice)",
+                        orderItem, transaction);
+                }
+
+                // Create order in Table Storage via Functions API
+                try
+                {
+                    var tableStorageOrder = new ABCRetailers.Models.Order
+                    {
+                        PartitionKey = "Orders",
+                        RowKey = Guid.NewGuid().ToString(),
+                        CustomerId = userId.ToString(),
+                        ProductId = "Multiple",
+                        ProductName = "Multiple Products",
+                        Quantity = cart.Items.Sum(item => item.Quantity),
+                        UnitPrice = (double)order.TotalAmount,
+                        TotalPrice = (double)order.TotalAmount,
+                        Status = "Completed",
+                        OrderDate = DateTime.UtcNow
+                    };
+
+                    await _functionsApi.AddEntityAsync("Orders", tableStorageOrder);
+                    order.TableStorageOrderId = tableStorageOrder.RowKey;
+
+                    // Update order with TableStorage reference
+                    await connection.ExecuteAsync(
+                        "UPDATE Orders SET TableStorageOrderId = @TableStorageOrderId WHERE OrderId = @OrderId",
+                        new { order.TableStorageOrderId, order.OrderId }, transaction);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to create Table Storage order, but SQL order was created successfully");
+                    // Continue even if Table Storage fails - don't rollback the entire order
+                }
+
+                // Clear cart after successful order completion
+                await ClearCartAsync(userId);
+
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Order {OrderId} completed successfully for user {UserId}", order.OrderId, userId);
+                return order;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error completing order for user {UserId}", userId);
+                throw new Exception($"Failed to complete order: {ex.Message}", ex);
+            }
+        }
+
+        public async Task<List<CustomerOrder>> GetUserOrdersAsync(Guid userId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+
+            var orders = await connection.QueryAsync<CustomerOrder>(
+                "SELECT * FROM Orders WHERE UserId = @UserId ORDER BY OrderDate DESC",
+                new { UserId = userId });
+
+            foreach (var order in orders)
+            {
+                var items = await connection.QueryAsync<OrderItem>(
+                    "SELECT * FROM OrderItems WHERE OrderId = @OrderId",
+                    new { order.OrderId });
+
+                order.Items = items.ToList();
+            }
+
+            return orders.ToList();
+        }
+
+        public async Task<CustomerOrder?> GetOrderByIdAsync(Guid orderId)
+        {
+            using var connection = new SqlConnection(_connectionString);
+
+            var order = await connection.QueryFirstOrDefaultAsync<CustomerOrder>(
+                "SELECT * FROM Orders WHERE OrderId = @OrderId",
+                new { OrderId = orderId });
+
+            if (order != null)
+            {
+                var items = await connection.QueryAsync<OrderItem>(
+                    "SELECT * FROM OrderItems WHERE OrderId = @OrderId",
+                    new { order.OrderId });
+
+                order.Items = items.ToList();
+            }
+
+            return order;
         }
     }
 }

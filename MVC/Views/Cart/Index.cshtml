@@ -62,8 +62,11 @@
                             <strong>Total:</strong>
                             <strong class="text-success h5">@Model.TotalPrice.ToString("C")</strong>
                         </div>
-                        <a asp-action="Checkout" class="btn btn-primary w-100 btn-lg">
-                            <i class="fas fa-credit-card"></i> Proceed to Checkout
+                        <a asp-action="CompleteOrder" class="btn btn-success btn-lg">
+                            <i class="fas fa-check-circle"></i> Complete Order
+                        </a>
+                        <a asp-controller="Store" asp-action="Index" class="btn btn-outline-primary">
+                            <i class="fas fa-shopping-bag"></i> Continue Shopping
                         </a>
                         <form method="post" asp-action="ClearCart" class="mt-2">
                             <button type="submit" class="btn btn-outline-secondary w-100">
@@ -79,7 +82,7 @@
     {
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i> Your shopping cart is empty.
-            <a asp-controller="Product" asp-action="Index" class="alert-link">Continue shopping</a>
+            <a asp-controller="Store" asp-action="Index" class="alert-link">Continue shopping</a>
         </div>
     }
 </div>

@@ -1,4 +1,5 @@
 ﻿// Controllers/StoreController.cs
+using System.Collections.Concurrent;
 using ABCRetailers.Models;
 using ABCRetailers.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -6,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ABCRetailers.Controllers
 {
-    [AllowAnonymous] // Allow both logged-in and guest users to browse
+    [AllowAnonymous]
     public class StoreController : Controller
     {
         private readonly IFunctionsApi _functionsApi;
@@ -18,14 +19,13 @@ namespace ABCRetailers.Controllers
             _logger = logger;
         }
 
-        // GET: Store - Customer product catalog
+        // GET: /Store
         public async Task<IActionResult> Index(string searchTerm = "", string category = "")
         {
             try
             {
                 var products = await _functionsApi.GetAllEntitiesAsync<Product>("Products");
 
-                // Apply filters if provided
                 if (!string.IsNullOrEmpty(searchTerm))
                 {
                     products = products.Where(p =>
@@ -34,11 +34,10 @@ namespace ABCRetailers.Controllers
                     ).ToList();
                 }
 
-                // Pass search parameters to view
                 ViewBag.SearchTerm = searchTerm;
                 ViewBag.Category = category;
 
-                return View(products);
+                return View(products); // This passes IEnumerable<Product> to the view
             }
             catch (Exception ex)
             {
@@ -48,7 +47,7 @@ namespace ABCRetailers.Controllers
             }
         }
 
-        // GET: Store/Details/5 - Product details page
+        // GET: /Store/Details/5
         public async Task<IActionResult> Details(string id)
         {
             if (string.IsNullOrEmpty(id))

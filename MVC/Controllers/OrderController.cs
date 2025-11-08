@@ -3,11 +3,13 @@ using System.Text.Json;
 using ABCRetailers.Models;
 using ABCRetailers.Models.ViewModels;
 using ABCRetailers.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace ABCRetailers.Controllers
 {
+    [Authorize(Roles = "Admin,Manager")]
     public class OrderController : Controller
     {
         private readonly IFunctionsApi _functionsApi;

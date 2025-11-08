@@ -37,18 +37,16 @@ namespace ABCRetailers.Models
         public decimal TotalPrice => UnitPrice * Quantity;
     }
 
-    // Renamed to avoid conflict with Table Storage Order class
     public class CustomerOrder
     {
         public Guid OrderId { get; set; }
-        public string TableStorageOrderId { get; set; } = string.Empty;
         public Guid UserId { get; set; }
-        public DateTime OrderDate { get; set; } = DateTime.UtcNow;
         public decimal TotalAmount { get; set; }
-        public string Status { get; set; } = "Pending";
+        public string Status { get; set; } = string.Empty;
         public string ShippingAddress { get; set; } = string.Empty;
-        public string? PaymentMethod { get; set; }
-        public string? PaymentStatus { get; set; }
+        public string PaymentStatus { get; set; } = "Not Required";
+        public DateTime OrderDate { get; set; }
+        public string? TableStorageOrderId { get; set; }
         public List<OrderItem> Items { get; set; } = new List<OrderItem>();
     }
 
@@ -61,5 +59,17 @@ namespace ABCRetailers.Models
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }
+    }
+
+    public class CompleteOrderViewModel
+    {
+        [Required(ErrorMessage = "Shipping address is required.")]
+        [StringLength(500, ErrorMessage = "Shipping address cannot exceed 500 characters.")]
+        public string ShippingAddress { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Payment method is required.")]
+        public string PaymentMethod { get; set; } = "Credit Card";
+
+        public ShoppingCart Cart { get; set; } = new ShoppingCart();
     }
 }

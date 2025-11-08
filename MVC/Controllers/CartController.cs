@@ -69,7 +69,7 @@ namespace ABCRetailers.Controllers
                 TempData["Error"] = "Error adding product to cart.";
             }
 
-            return RedirectToAction("Index", "Product");
+            return RedirectToAction("Index", "Store");
         }
 
         [HttpPost]
@@ -197,12 +197,12 @@ namespace ABCRetailers.Controllers
             }
         }
 
-        [HttpGet]
-        public IActionResult OrderConfirmation(Guid orderId)
-        {
-            ViewBag.OrderId = orderId;
-            return View();
-        }
+        //[HttpGet]
+        //public IActionResult OrderConfirmation(Guid orderId)
+        //{
+        //    ViewBag.OrderId = orderId;
+        //    return View();
+        //}
 
         private Guid GetCurrentUserId()
         {
@@ -232,6 +232,115 @@ namespace ABCRetailers.Controllers
                 return Json(0);
             }
         }
+        [HttpGet]
+        public async Task<IActionResult> CompleteOrder()
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var cart = await _cartService.GetCartAsync(userId);
+
+                if (!cart.Items.Any())
+                {
+                    TempData["Error"] = "Your cart is empty. Add some items before completing your order.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                var user = await _authService.GetUserByIdAsync(userId);
+                var model = new CompleteOrderViewModel
+                {
+                    Cart = cart
+                };
+
+                return View(model);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading complete order page");
+                TempData["Error"] = "Error loading order completion page.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CompleteOrder(CompleteOrderViewModel model)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+
+                // Basic validation
+                if (string.IsNullOrWhiteSpace(model.ShippingAddress))
+                {
+                    ModelState.AddModelError("ShippingAddress", "Shipping address is required.");
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    // Reload cart data if validation fails
+                    model.Cart = await _cartService.GetCartAsync(userId);
+                    return View(model);
+                }
+
+                var order = await _cartService.CompleteOrderAsync(userId, model);
+
+                TempData["Success"] = $"Order completed successfully! Your order ID is: {order.OrderId}";
+                return RedirectToAction("OrderConfirmation", new { orderId = order.OrderId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error completing order for user {UserId}", GetCurrentUserId());
+                TempData["Error"] = $"Error completing your order: {ex.Message}";
+
+                // Reload cart data
+                var userId = GetCurrentUserId();
+                model.Cart = await _cartService.GetCartAsync(userId);
+                return View(model);
+            }
+        }
+
+
+        [HttpGet]
+        public async Task<IActionResult> OrderConfirmation(Guid orderId)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var order = await _cartService.GetOrderByIdAsync(orderId);
+
+                if (order == null || order.UserId != userId)
+                {
+                    TempData["Error"] = "Order not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                return View(order);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading order confirmation for order {OrderId}", orderId);
+                TempData["Error"] = "Error loading order confirmation.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> OrderHistory()
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var orders = await _cartService.GetUserOrdersAsync(userId);
+                return View(orders);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading order history");
+                TempData["Error"] = "Error loading order history.";
+                return View(new List<CustomerOrder>());
+            }
+        }
     }
 
     // ViewModel for checkout
@@ -242,9 +351,8 @@ namespace ABCRetailers.Controllers
         [Required(ErrorMessage = "Shipping address is required.")]
         public string ShippingAddress { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Email address is required.")]
         [EmailAddress(ErrorMessage = "Invalid email address.")]
         public string Email { get; set; } = string.Empty;
-
-        public string? PaymentMethod { get; set; } = "Credit Card";
     }
 }

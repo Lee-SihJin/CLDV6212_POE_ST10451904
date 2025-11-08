@@ -1,29 +1,81 @@
-﻿@{
+﻿@model ABCRetailers.Models.CustomerOrder
+@{
     ViewData["Title"] = "Order Confirmation";
-    var orderId = ViewBag.OrderId;
 }
 
-<div class="container mt-4 text-center">
-    <div class="card">
-        <div class="card-body py-5">
-            <div class="mb-4">
-                <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
-            </div>
-            <h2 class="text-success">Order Confirmed!</h2>
-            <p class="lead">Thank you for your purchase. Your order has been successfully placed.</p>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white text-center py-4">
+                    <i class="fas fa-check-circle fa-4x mb-3"></i>
+                    <h2 class="card-title mb-0">Order Confirmed!</h2>
+                    <p class="lead mb-0">Thank you for your purchase</p>
+                </div>
+                <div class="card-body text-center py-5">
+                    <h4 class="text-success mb-3">Your order has been completed successfully</h4>
 
-            <div class="alert alert-info mt-4">
-                <h5>Order ID: <code>@orderId</code></h5>
-                <p class="mb-0">We've sent a confirmation email with your order details.</p>
-            </div>
+                    <div class="alert alert-info mb-4">
+                        <h5>Order ID: <code class="fs-4">@Model.OrderId</code></h5>
+                        <p class="mb-0">We've sent a confirmation email with your order details.</p>
+                    </div>
 
-            <div class="mt-4">
-                <a asp-controller="Home" asp-action="Index" class="btn btn-primary me-2">
-                    <i class="fas fa-home"></i> Back to Home
-                </a>
-                <a asp-controller="Product" asp-action="Index" class="btn btn-outline-secondary">
-                    <i class="fas fa-shopping-bag"></i> Continue Shopping
-                </a>
+                    <!-- Order Summary -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Order Summary</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-start">
+                                <div class="col-md-6">
+                                    <p><strong>Order Date:</strong> @Model.OrderDate.ToString("MMMM dd, yyyy")</p>
+                                    <p><strong>Status:</strong> <span class="badge bg-success">@Model.Status</span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Total Amount:</strong> <span class="h5 text-success">@Model.TotalAmount.ToString("C")</span></p>
+                                    <p><strong>Items:</strong> @Model.Items.Sum(i => i.Quantity)</p>
+                                </div>
+                            </div>
+
+                            <!-- Shipping Address -->
+                            <div class="mt-3 p-3 bg-light rounded">
+                                <h6>Shipping Address:</h6>
+                                <p class="mb-0">@Model.ShippingAddress</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Items -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Order Items</h5>
+                        </div>
+                        <div class="card-body">
+                            @foreach (var item in Model.Items)
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="text-start">
+                                        <h6 class="mb-1">@item.ProductName</h6>
+                                        <small class="text-muted">Quantity: @item.Quantity</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="fw-bold">@item.TotalPrice.ToString("C")</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                        <a asp-controller="Store" asp-action="Index" class="btn btn-primary me-md-2">
+                            <i class="fas fa-shopping-bag"></i> Continue Shopping
+                        </a>
+                        <a asp-action="OrderHistory" class="btn btn-outline-secondary">
+                            <i class="fas fa-history"></i> View Order History
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
