@@ -108,6 +108,14 @@
                                 <ul class="dropdown-menu">
                                     
                                     <li><hr class="dropdown-divider"></li>
+                                    @if (User.Identity.IsAuthenticated && User.IsInRole("Customer"))
+                                    {
+                                        <li class="nav-item">
+                                            <a class="nav-link" asp-controller="CustomerAccount" asp-action="MyAccount">
+                                                <i class="fas fa-user"></i> My Account
+                                            </a>
+                                        </li>
+                                    }
                                     <li>
                                         <form asp-controller="Auth" asp-action="Logout" method="post">
                                             <button type="submit" class="dropdown-item">
