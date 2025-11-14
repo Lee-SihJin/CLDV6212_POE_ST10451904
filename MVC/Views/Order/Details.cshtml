@@ -1,5 +1,5 @@
 ﻿<!-- Views/Order/Details.cshtml -->
-@model ABCRetailers.Models.Order
+@model ABCRetailers.Models.CustomerOrder
 @{
     ViewData["Title"] = "Order Details";
 }
@@ -7,7 +7,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-receipt"></i> Order Details</h2>
     <div>
-        <a asp-action="Edit" asp-route-id="@Model.RowKey" class="btn btn-primary">
+        <a asp-action="Edit" asp-route-id="@Model.OrderId" class="btn btn-primary">
             <i class="fas fa-edit"></i> Edit
         </a>
         <a asp-action="Index" class="btn btn-secondary">
@@ -18,7 +18,8 @@
 
 <div class="row">
     <div class="col-md-8">
-        <div class="card">
+        <!-- Order Information Card -->
+        <div class="card mb-4">
             <div class="card-header">
                 <h5 class="card-title mb-0">Order Information</h5>
             </div>
@@ -28,18 +29,15 @@
                         <p><strong>Order ID:</strong></p>
                         <p class="text-muted">@Model.OrderId</p>
 
-                        <p><strong>Customer:</strong></p>
-                        <p class="text-muted">@Model.Username</p>
+                        <p><strong>Customer ID:</strong></p>
+                        <p class="text-muted">@Model.UserId</p>
 
-                        <p><strong>Product:</strong></p>
-                        <p class="text-muted">@Model.ProductName</p>
+                        <p><strong>Shipping Address:</strong></p>
+                        <p class="text-muted">@(string.IsNullOrEmpty(Model.ShippingAddress) ? "Not specified" : Model.ShippingAddress)</p>
                     </div>
                     <div class="col-md-6">
                         <p><strong>Order Date:</strong></p>
                         <p class="text-muted">@Model.OrderDate.ToString("MMMM dd, yyyy")</p>
-
-                        <p><strong>Quantity:</strong></p>
-                        <p class="text-muted">@Model.Quantity</p>
 
                         <p><strong>Status:</strong></p>
                         <p>
@@ -57,48 +55,160 @@
                                 @Model.Status
                             </span>
                         </p>
+
+                        <p><strong>Payment Status:</strong></p>
+                        <p>
+                            @{
+                                string GetPaymentStatusBadgeClass(string paymentStatus) => paymentStatus?.ToLower() switch
+                                {
+                                    "paid" => "success",
+                                    "pending" => "warning",
+                                    "failed" => "danger",
+                                    "not required" => "info",
+                                    _ => "secondary"
+                                };
+                            }
+                            <span class="badge bg-@(GetPaymentStatusBadgeClass(Model.PaymentStatus)) fs-6">
+                                @Model.PaymentStatus
+                            </span>
+                        </p>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Order Items Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Order Items</h5>
+            </div>
+            <div class="card-body">
+                @if (Model.Items != null && Model.Items.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Product ID</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in Model.Items)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@item.ProductName</strong>
+                                        </td>
+                                        <td>
+                                            <code>@item.ProductId</code>
+                                        </td>
+                                        <td>@item.Quantity</td>
+                                        <td>@item.UnitPrice.ToString("C")</td>
+                                        <td>@item.TotalPrice.ToString("C")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-active">
+                                <tr>
+                                    <td colspan="3"></td>
+                                    <td><strong>Grand Total:</strong></td>
+                                    <td><strong class="text-success">@Model.TotalAmount.ToString("C")</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle"></i> No items found in this order.
+                    </div>
+                }
             </div>
         </div>
     </div>
 
     <div class="col-md-4">
+        <!-- Pricing Summary Card -->
         <div class="card">
             <div class="card-header">
-                <h6 class="card-title mb-0">Pricing Details</h6>
+                <h6 class="card-title mb-0">Order Summary</h6>
             </div>
             <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <span>Unit Price:</span>
-                    <span>@Model.UnitPrice.ToString("C")</span>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Items Count:</span>
+                    <span>@(Model.Items?.Count ?? 0) item(s)</span>
                 </div>
-                <div class="d-flex justify-content-between">
-                    <span>Quantity:</span>
-                    <span>@Model.Quantity</span>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Total Quantity:</span>
+                    <span>@(Model.Items?.Sum(i => i.Quantity) ?? 0)</span>
                 </div>
                 <hr>
                 <div class="d-flex justify-content-between">
-                    <strong>Total Price:</strong>
-                    <strong class="text-success">@Model.TotalPrice.ToString("C")</strong>
+                    <strong>Order Total:</strong>
+                    <strong class="text-success fs-5">@Model.TotalAmount.ToString("C")</strong>
                 </div>
             </div>
         </div>
 
+        <!-- System Information Card -->
         <div class="card mt-3">
             <div class="card-header">
                 <h6 class="card-title mb-0">System Information</h6>
             </div>
             <div class="card-body">
-                <p><strong>Created:</strong></p>
-                <p class="text-muted small">@Model.Timestamp?.ToString("MMM dd, yyyy HH:mm")</p>
+                <p><strong>Order ID:</strong></p>
+                <p class="text-muted small">@Model.OrderId</p>
 
                 <p><strong>Customer ID:</strong></p>
-                <p class="text-muted small">@Model.CustomerId</p>
+                <p class="text-muted small">@Model.UserId</p>
 
-                <p><strong>Product ID:</strong></p>
-                <p class="text-muted small">@Model.ProductId</p>
+                @if (!string.IsNullOrEmpty(Model.TableStorageOrderId))
+                {
+                    <p><strong>Table Storage Reference:</strong></p>
+                    <p class="text-muted small">@Model.TableStorageOrderId</p>
+                }
             </div>
         </div>
+
+       
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        async function updateOrderStatus(orderId, newStatus) {
+            if (confirm(`Are you sure you want to change the order status to "${newStatus}"?`)) {
+                try {
+                    const response = await fetch('/Order/UpdateOrderStatus', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        },
+                        body: JSON.stringify({ orderId: orderId, status: newStatus })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.success) {
+                        alert('Order status updated successfully!');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('An error occurred while updating the status: ' + error.message);
+                }
+            }
+        }
+    </script>
+}

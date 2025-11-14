@@ -1,5 +1,5 @@
 ﻿<!-- Views/Order/Edit.cshtml -->
-@model ABCRetailers.Models.Order
+@model ABCRetailers.Models.CustomerOrder
 @{
     ViewData["Title"] = "Edit Order";
 }
@@ -11,32 +11,26 @@
         <form asp-action="Edit" method="post">
             @Html.AntiForgeryToken()
 
-            <!-- Preserve all entity properties -->
-            <input type="hidden" asp-for="RowKey" />
-            <input type="hidden" asp-for="PartitionKey" />
-            <input type="hidden" asp-for="ETag" />
-            <input type="hidden" asp-for="Timestamp" />
-            <input type="hidden" asp-for="CustomerId" />
-            <input type="hidden" asp-for="ProductId" />
-            <input type="hidden" asp-for="ProductName" />
-            <input type="hidden" asp-for="Username" />
-            <input type="hidden" asp-for="UnitPrice" />
-            <input type="hidden" asp-for="TotalPrice" />
-            <input type="hidden" asp-for="Quantity" />
+            <!-- Preserve order properties -->
+            <input type="hidden" asp-for="OrderId" />
+            <input type="hidden" asp-for="UserId" />
+            <input type="hidden" asp-for="TotalAmount" />
+            <input type="hidden" asp-for="ShippingAddress" />
+            <input type="hidden" asp-for="PaymentStatus" />
 
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group mb-3">
-                        <label class="form-label">Customer</label>
-                        <input type="text" class="form-control" value="@Model.Username" readonly />
+                        <label class="form-label">Order ID</label>
+                        <input type="text" class="form-control" value="@Model.OrderId" readonly />
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group mb-3">
-                        <label class="form-label">Product</label>
-                        <input type="text" class="form-control" value="@Model.ProductName" readonly />
+                        <label class="form-label">Customer ID</label>
+                        <input type="text" class="form-control" value="@Model.UserId" readonly />
                     </div>
                 </div>
             </div>
@@ -44,37 +38,71 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group mb-3">
-                        <label asp-for="OrderDate" class="form-label"></label>
+                        <label asp-for="OrderDate" class="form-label">Order Date</label>
                         <input asp-for="OrderDate" class="form-control" type="date" />
                         <span asp-validation-for="OrderDate" class="text-danger"></span>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group mb-3">
-                        <label class="form-label">Quantity</label>
-                        <input type="number" class="form-control" value="@Model.Quantity" readonly />
-                        <div class="form-text">Quantity cannot be changed after order creation</div>
+                        <label class="form-label">Total Amount</label>
+                        <input type="text" class="form-control" value="@Model.TotalAmount.ToString("C")" readonly />
                     </div>
                 </div>
             </div>
 
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group mb-3">
-                        <label class="form-label">Unit Price</label>
-                        <input type="text" class="form-control" value="@Model.UnitPrice.ToString("C")" readonly />
-                    </div>
+            <!-- Order Items Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Order Items</h5>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-group mb-3">
-                        <label class="form-label">Total Price</label>
-                        <input type="text" class="form-control" value="@Model.TotalPrice.ToString("C")" readonly />
-                    </div>
+                <div class="card-body">
+                    @if (Model.Items != null && Model.Items.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Quantity</th>
+                                        <th>Unit Price</th>
+                                        <th>Total Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Model.Items)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@item.ProductName</strong><br />
+                                                <small class="text-muted">ID: @item.ProductId</small>
+                                            </td>
+                                            <td>@item.Quantity</td>
+                                            <td>@item.UnitPrice.ToString("C")</td>
+                                            <td>@item.TotalPrice.ToString("C")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-active">
+                                        <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
+                                        <td><strong>@Model.TotalAmount.ToString("C")</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle"></i> No items in this order.
+                        </div>
+                    }
                 </div>
             </div>
 
             <div class="form-group mb-3">
-                <label asp-for="Status" class="form-label"></label>
+                <label asp-for="Status" class="form-label">Order Status</label>
                 <select asp-for="Status" class="form-select">
                     <option value="Submitted">Submitted</option>
                     <option value="Processing">Processing</option>
@@ -88,7 +116,7 @@
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save"></i> Update Order
                 </button>
-                <a asp-action="Details" asp-route-id="@Model.RowKey" class="btn btn-info">
+                <a asp-action="Details" asp-route-id="@Model.OrderId" class="btn btn-info">
                     <i class="fas fa-eye"></i> View Details
                 </a>
                 <a asp-action="Index" class="btn btn-secondary">
@@ -110,13 +138,35 @@
                 </p>
 
                 <p>
-                    <strong>Created:</strong><br />
-                    <small class="text-muted">@Model.Timestamp?.ToString("MMM dd, yyyy HH:mm")</small>
+                    <strong>Order Date:</strong><br />
+                    <small class="text-muted">@Model.OrderDate.ToString("MMM dd, yyyy")</small>
+                </p>
+
+                <p>
+                    <strong>Items Count:</strong><br />
+                    <small class="text-muted">@(Model.Items?.Count ?? 0) item(s)</small>
                 </p>
 
                 <p>
                     <strong>Current Status:</strong><br />
                     <span class="badge bg-@(GetStatusBadgeClass(Model.Status))">@Model.Status</span>
+                </p>
+
+                <p>
+                    <strong>Payment Status:</strong><br />
+                    <span class="badge bg-@(GetPaymentStatusBadgeClass(Model.PaymentStatus))">@Model.PaymentStatus</span>
+                </p>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Shipping Information</h6>
+            </div>
+            <div class="card-body">
+                <p>
+                    <strong>Shipping Address:</strong><br />
+                    <small class="text-muted">@(string.IsNullOrEmpty(Model.ShippingAddress) ? "Not specified" : Model.ShippingAddress)</small>
                 </p>
             </div>
         </div>
@@ -132,6 +182,18 @@
             "processing" => "info",
             "completed" => "success",
             "cancelled" => "danger",
+            _ => "secondary"
+        };
+    }
+
+    string GetPaymentStatusBadgeClass(string paymentStatus)
+    {
+        return paymentStatus?.ToLower() switch
+        {
+            "paid" => "success",
+            "pending" => "warning",
+            "failed" => "danger",
+            "not required" => "info",
             _ => "secondary"
         };
     }

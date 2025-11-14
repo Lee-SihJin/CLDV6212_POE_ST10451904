@@ -1,13 +1,10 @@
-﻿@model IEnumerable<ABCRetailers.Models.Order>
+﻿@model IEnumerable<ABCRetailers.Models.CustomerOrder>
 @{
     ViewData["Title"] = "Orders";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-shopping-cart"></i> Orders</h2>
-    <a asp-action="Create" class="btn btn-primary">
-        <i class="fas fa-plus"></i> Add Order
-    </a>
 </div>
 
 @if (Model.Any())
@@ -17,12 +14,12 @@
             <thead class="table-dark">
                 <tr>
                     <th>Order ID</th>
-                    <th>User ID</th>
-                    <th>Product</th>
+                    <th>Customer ID</th>
                     <th>Order Date</th>
-                    <th>Quantity</th>
-                    <th>Total Price</th>
+                    <th>Items Count</th>
+                    <th>Total Amount</th>
                     <th>Status</th>
+                    <th>Payment Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -30,23 +27,27 @@
                 @foreach (var order in Model.OrderByDescending(o => o.OrderDate))
                 {
                     <tr>
-                        <td><code>@order.OrderId.Substring(0, 8)...</code></td>
-                        <td>@order.CustomerId</td>
-                        <td>@order.ProductName</td>
+                        <td><code>@order.OrderId.ToString().Substring(0, 8)...</code></td>
+                        <td>@order.UserId.ToString().Substring(0, 8)...</td>
                         <td>@order.OrderDate.ToString("MMM dd, yyyy")</td>
-                        <td>@order.Quantity</td>
-                        <td>@order.TotalPrice.ToString("C")</td>
+                        <td>@(order.Items?.Count ?? 0)</td>
+                        <td>@order.TotalAmount.ToString("C")</td>
                         <td>
                             <span class="badge bg-@(GetStatusBadgeClass(order.Status))">
                                 @order.Status
                             </span>
                         </td>
                         <td>
+                            <span class="badge bg-@(GetPaymentStatusBadgeClass(order.PaymentStatus))">
+                                @order.PaymentStatus
+                            </span>
+                        </td>
+                        <td>
                             <div class="btn-group" role="group">
-                                <a asp-action="Details" asp-route-id="@order.RowKey" class="btn btn-sm btn-outline-info" title="Details">
+                                <a asp-action="Details" asp-route-id="@order.OrderId" class="btn btn-sm btn-outline-info" title="Details">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                                <a asp-action="Edit" asp-route-id="@order.RowKey" class="btn btn-sm btn-outline-primary" title="Edit">
+                                <a asp-action="Edit" asp-route-id="@order.OrderId" class="btn btn-sm btn-outline-primary" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </a>
 
@@ -59,23 +60,23 @@
                                         </button>
                                         <ul class="dropdown-menu">
                                             <li>
-                                                <a class="dropdown-item" href="#" onclick="updateOrderStatus('@order.RowKey', 'Submitted')">
+                                                <a class="dropdown-item" href="#" onclick="updateOrderStatus('@order.OrderId', 'Submitted')">
                                                     <i class="fas fa-paper-plane text-primary"></i> Mark as Submitted
                                                 </a>
                                             </li>
                                             <li>
-                                                <a class="dropdown-item" href="#" onclick="updateOrderStatus('@order.RowKey', 'Processing')">
+                                                <a class="dropdown-item" href="#" onclick="updateOrderStatus('@order.OrderId', 'Processing')">
                                                     <i class="fas fa-cog text-info"></i> Mark as Processing
                                                 </a>
                                             </li>
                                             <li>
-                                                <a class="dropdown-item" href="#" onclick="updateOrderStatus('@order.RowKey', 'Completed')">
+                                                <a class="dropdown-item" href="#" onclick="updateOrderStatus('@order.OrderId', 'Completed')">
                                                     <i class="fas fa-check text-success"></i> Mark as Completed
                                                 </a>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
                                             <li>
-                                                <a class="dropdown-item" href="#" onclick="updateOrderStatus('@order.RowKey', 'Cancelled')">
+                                                <a class="dropdown-item" href="#" onclick="updateOrderStatus('@order.OrderId', 'Cancelled')">
                                                     <i class="fas fa-times text-danger"></i> Cancel Order
                                                 </a>
                                             </li>
@@ -90,7 +91,7 @@
                                     </button>
                                 }
 
-                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDelete('@order.RowKey', '@order.OrderId')" title="Delete">
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDelete('@order.OrderId', '@order.OrderId')" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -123,6 +124,8 @@ else
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form id="deleteForm" method="post" style="display: inline;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" id="deleteOrderId" />
                     <button type="submit" class="btn btn-danger">Delete</button>
                 </form>
             </div>
@@ -130,36 +133,48 @@ else
     </div>
 </div>
 
-@{
-    string GetStatusBadgeClass(string status) => status?.ToLower() switch
+@functions {
+    string GetStatusBadgeClass(string status)
     {
-        "submitted" => "primary",
-        "processing" => "info",
-        "completed" => "success",
-        "cancelled" => "danger",
-        _ => "secondary"
-    };
+        return status?.ToLower() switch
+        {
+            "submitted" => "primary",
+            "processing" => "info",
+            "completed" => "success",
+            "cancelled" => "danger",
+            _ => "secondary"
+        };
+    }
+
+    string GetPaymentStatusBadgeClass(string paymentStatus)
+    {
+        return paymentStatus?.ToLower() switch
+        {
+            "paid" => "success",
+            "pending" => "warning",
+            "failed" => "danger",
+            "not required" => "info",
+            _ => "secondary"
+        };
+    }
 }
 
 @section Scripts {
-    @Html.AntiForgeryToken()
     <script>
-        function confirmDelete(orderRowKey, orderId) {
-            document.getElementById('orderId').textContent = orderId.substring(0, 8) + '...';
-            document.getElementById('deleteForm').action = '/Order/Delete/' + orderRowKey;
+        function confirmDelete(orderId, orderDisplayId) {
+            document.getElementById('orderId').textContent = orderDisplayId.substring(0, 8) + '...';
+            document.getElementById('deleteOrderId').value = orderId;
             new bootstrap.Modal(document.getElementById('deleteModal')).show();
         }
 
-                async function updateOrderStatus(orderRowKey, newStatus) {
+        async function updateOrderStatus(orderId, newStatus) {
             if (confirm(`Are you sure you want to change the status to "${newStatus}"?`)) {
                 try {
-                    // Create a minimal order object with only the required properties
                     const orderUpdate = {
-                        rowKey: orderRowKey,
+                        orderId: orderId,
                         status: newStatus
                     };
 
-                    // Send the order update object
                     const response = await fetch('/Order/UpdateOrderStatus', {
                         method: 'POST',
                         headers: {
@@ -184,19 +199,6 @@ else
                     console.error('Error:', error);
                     alert('An error occurred while updating the status: ' + error.message);
                 }
-            }
-        }
-
-        async function getOrder(orderRowKey) {
-            try {
-                const response = await fetch(`/Order/GetOrderDetails/${orderRowKey}`);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch order details');
-                }
-                return await response.json();
-            } catch (error) {
-                console.error('Error fetching order:', error);
-                return null;
             }
         }
     </script>

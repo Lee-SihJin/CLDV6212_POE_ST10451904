@@ -1,5 +1,4 @@
-﻿using System.Text;
-using System.Text.Json;
+﻿// Controllers/OrderController.cs
 using ABCRetailers.Models;
 using ABCRetailers.Models.ViewModels;
 using ABCRetailers.Services;
@@ -12,11 +11,13 @@ namespace ABCRetailers.Controllers
     [Authorize(Roles = "Admin,Manager")]
     public class OrderController : Controller
     {
+        private readonly IOrderService _orderService;
         private readonly IFunctionsApi _functionsApi;
         private readonly ILogger<OrderController> _logger;
 
-        public OrderController(IFunctionsApi functionsApi, ILogger<OrderController> logger)
+        public OrderController(IOrderService orderService, IFunctionsApi functionsApi, ILogger<OrderController> logger)
         {
+            _orderService = orderService;
             _functionsApi = functionsApi;
             _logger = logger;
         }
@@ -26,14 +27,14 @@ namespace ABCRetailers.Controllers
         {
             try
             {
-                var orders = await _functionsApi.GetAllEntitiesAsync<Order>("Orders");
+                var orders = await _orderService.GetAllOrdersAsync();
                 return View(orders);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving orders");
+                _logger.LogError(ex, "Error retrieving orders from SQL database");
                 TempData["Error"] = "Error retrieving orders";
-                return View(new List<Order>());
+                return View(new List<CustomerOrder>());
             }
         }
 
@@ -50,6 +51,7 @@ namespace ABCRetailers.Controllers
                     Products = products
                 };
 
+                await PopulateDropdowns(viewModel);
                 return View(viewModel);
             }
             catch (Exception ex)
@@ -60,72 +62,16 @@ namespace ABCRetailers.Controllers
             }
         }
 
-        // POST: Create Order
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(OrderCreateViewModel model)
-        {
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    // Get customer and product using Functions API
-                    var customer = await _functionsApi.GetEntityAsync<Customer>("Customers", "Customer", model.CustomerId);
-                    var product = await _functionsApi.GetEntityAsync<Product>("Products", "Product", model.ProductId);
-                    if (customer == null || product == null)
-                    {
-                        ModelState.AddModelError("", "Invalid customer or product selected.");
-                        await PopulateDropdowns(model);
-                        return View(model);
-                    }
-
-                    // Check stock
-                    if (product.StockAvailable < model.Quantity)
-                    {
-                        ModelState.AddModelError("Quantity", $"Insufficient stock. Available: {product.StockAvailable}");
-                        await PopulateDropdowns(model);
-                        return View(model);
-                    }
-
-                    // Create order
-                    var order = new Order
-                    {
-                        CustomerId = model.CustomerId,
-                        Username = customer.Username,
-                        ProductId = model.ProductId,
-                        ProductName = product.ProductName,
-                        OrderDate = model.OrderDate,
-                        Quantity = model.Quantity,
-                        UnitPrice = product.Price,
-                        TotalPrice = product.Price * model.Quantity,
-                        Status = "Submitted"
-                    };
-
-                    await _functionsApi.AddEntityAsync("Orders", order);
-
-                    TempData["Success"] = "Order created successfully!";
-                    return RedirectToAction(nameof(Index));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error creating order");
-                    ModelState.AddModelError("", $"Error creating order: {ex.Message}");
-                }
-            }
-
-            await PopulateDropdowns(model);
-            return View(model);
-        }
 
         // GET: Order Details
-        public async Task<IActionResult> Details(string id)
+        public async Task<IActionResult> Details(Guid id)
         {
-            if (string.IsNullOrEmpty(id))
+            if (id == Guid.Empty)
                 return NotFound();
 
             try
             {
-                var order = await _functionsApi.GetEntityAsync<Order>("Orders", "Orders", id);
+                var order = await _orderService.GetOrderByIdAsync(id);
                 if (order == null)
                     return NotFound();
 
@@ -140,14 +86,14 @@ namespace ABCRetailers.Controllers
         }
 
         // GET: Edit Order
-        public async Task<IActionResult> Edit(string id)
+        public async Task<IActionResult> Edit(Guid id)
         {
-            if (string.IsNullOrEmpty(id))
+            if (id == Guid.Empty)
                 return NotFound();
 
             try
             {
-                var order = await _functionsApi.GetEntityAsync<Order>("Orders", "Order",id);
+                var order = await _orderService.GetOrderByIdAsync(id);
                 if (order == null)
                     return NotFound();
 
@@ -164,8 +110,11 @@ namespace ABCRetailers.Controllers
         // POST: Edit Order
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(Order order)
+        public async Task<IActionResult> Edit(Guid id, CustomerOrder order)
         {
+            if (id != order.OrderId)
+                return NotFound();
+
             if (!ModelState.IsValid)
             {
                 return View(order);
@@ -173,26 +122,21 @@ namespace ABCRetailers.Controllers
 
             try
             {
-                // Get the existing order to ensure 
-                var existingOrder = await _functionsApi.GetEntityAsync<Order>("Orders", "Order", order.RowKey);
-                if (existingOrder == null)
+                // Create edit view model with only editable fields
+                var editModel = new OrderEditViewModel
                 {
-                    return NotFound();
-                }
+                    OrderDate = order.OrderDate,
+                    Status = order.Status
+                };
 
-                // Update only the editable fields
-                existingOrder.OrderDate = order.OrderDate;
-                existingOrder.Status = order.Status;
-                // Preserve all other fields from existingOrder
+                var updatedOrder = await _orderService.UpdateOrderAsync(id, editModel);
 
-                await _functionsApi.UpdateEntityAsync("Orders", existingOrder);
-
-                TempData["SuccessMessage"] = "Order updated successfully!";
-                return RedirectToAction(nameof(Details), new { id = order.RowKey });
+                TempData["Success"] = "Order updated successfully!";
+                return RedirectToAction(nameof(Details), new { id = updatedOrder.OrderId });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating order: {OrderId}", order.RowKey);
+                _logger.LogError(ex, "Error updating order: {OrderId}", order.OrderId);
                 ModelState.AddModelError("", "An error occurred while updating the order.");
                 return View(order);
             }
@@ -201,9 +145,9 @@ namespace ABCRetailers.Controllers
         // POST: Delete Order
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Delete(string id)
+        public async Task<IActionResult> Delete(Guid id)
         {
-            if (string.IsNullOrEmpty(id))
+            if (id == Guid.Empty)
             {
                 TempData["Error"] = "Invalid order ID";
                 return RedirectToAction(nameof(Index));
@@ -211,8 +155,15 @@ namespace ABCRetailers.Controllers
 
             try
             {
-                await _functionsApi.DeleteEntityAsync("Orders", "Order", id);
-                TempData["Success"] = "Order deleted successfully!";
+                var success = await _orderService.DeleteOrderAsync(id);
+                if (success)
+                {
+                    TempData["Success"] = "Order deleted successfully!";
+                }
+                else
+                {
+                    TempData["Error"] = "Order not found or could not be deleted";
+                }
             }
             catch (Exception ex)
             {
@@ -251,11 +202,11 @@ namespace ABCRetailers.Controllers
 
         // GET: Get Order Details for JSON
         [HttpGet]
-        public async Task<IActionResult> GetOrderDetails(string id)
+        public async Task<IActionResult> GetOrderDetails(Guid id)
         {
             try
             {
-                var order = await _functionsApi.GetEntityAsync<Order>("Orders", "Order", id);
+                var order = await _orderService.GetOrderByIdAsync(id);
                 if (order == null)
                 {
                     return NotFound();
@@ -269,42 +220,30 @@ namespace ABCRetailers.Controllers
             }
         }
 
-        // POST: Update Order Status with complete Order object
+        // POST: Update Order Status
         [HttpPost]
-        public async Task<IActionResult> UpdateOrderStatus([FromBody] Order order)
+        public async Task<IActionResult> UpdateOrderStatus([FromBody] OrderStatusUpdateModel model)
         {
-            if (order == null || string.IsNullOrEmpty(order.RowKey))
+            if (model == null || model.OrderId == Guid.Empty || string.IsNullOrEmpty(model.Status))
             {
-                return Json(new { success = false, message = "Order data is required" });
+                return Json(new { success = false, message = "Order ID and status are required" });
             }
 
             try
             {
-                // Validate the status
-                var validStatuses = new[] { "Submitted", "Processing", "Completed", "Cancelled" };
-                if (!validStatuses.Contains(order.Status))
+                var success = await _orderService.UpdateOrderStatusAsync(model.OrderId, model.Status);
+                if (success)
                 {
-                    return Json(new { success = false, message = "Invalid status value" });
+                    return Json(new { success = true, message = $"Order status updated to {model.Status}" });
                 }
-
-                // Get the existing order to preserve other properties that might not be sent
-                var existingOrder = await _functionsApi.GetEntityAsync<Order>("Orders", "Orders", order.RowKey);
-                if (existingOrder == null)
+                else
                 {
-                    return Json(new { success = false, message = "Order not found" });
+                    return Json(new { success = false, message = "Order not found or could not be updated" });
                 }
-
-                // Update only the status and preserve other properties
-                existingOrder.Status = order.Status;
-
-                // Update the entity in table storage
-                await _functionsApi.UpdateEntityAsync("Orders", existingOrder);
-
-                return Json(new { success = true, message = $"Order status updated to {order.Status}" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating order status for ID: {OrderId} to {Status}", order.RowKey, order.Status);
+                _logger.LogError(ex, "Error updating order status for ID: {OrderId} to {Status}", model.OrderId, model.Status);
                 return Json(new { success = false, message = ex.Message });
             }
         }
@@ -320,7 +259,7 @@ namespace ABCRetailers.Controllers
                 model.Customers = customers;
                 model.Products = products;
 
-                // Also populate ViewBag for dropdowns if needed
+                // Also populate ViewBag for dropdowns
                 ViewBag.Customers = customers.Select(c => new SelectListItem
                 {
                     Value = c.CustomerId,
@@ -342,5 +281,12 @@ namespace ABCRetailers.Controllers
                 ViewBag.Products = new List<SelectListItem>();
             }
         }
+    }
+
+    // Model for status updates
+    public class OrderStatusUpdateModel
+    {
+        public Guid OrderId { get; set; }
+        public string Status { get; set; } = string.Empty;
     }
 }

@@ -276,7 +276,7 @@ namespace ABCRetailers.Services
                     OrderId = Guid.NewGuid(),
                     UserId = userId,
                     TotalAmount = cart.TotalPrice,
-                    Status = "Completed",
+                    Status = "Submitted",
                     ShippingAddress = orderDetails.ShippingAddress,
                     OrderDate = DateTime.UtcNow,
                     PaymentStatus = "Not Required"
