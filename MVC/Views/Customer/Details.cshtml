@@ -1,0 +1,76 @@
+﻿<!-- Views/Customer/Details.cshtml -->
+@model ABCRetailers.Models.User
+@{
+    ViewData["Title"] = "Customer Details";
+}
+
+<h2><i class="fas fa-user"></i> Customer Details</h2>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Personal Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>First Name:</strong><br />@Model.FirstName</p>
+                        <p><strong>Last Name:</strong><br />@Model.LastName</p>
+                        <p><strong>Username:</strong><br />@Model.Username</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Email:</strong><br />@Model.Email</p>
+                        <p>
+                            <strong>Status:</strong><br />
+                            <span class="badge @(Model.IsActive ? "bg-success" : "bg-danger")">
+                                @(Model.IsActive ? "Active" : "Inactive")
+                            </span>
+                        </p>
+                        <p>
+                            <strong>Role:</strong><br />
+                            <span class="badge bg-info">@Model.Role</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Account Information</h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    <strong>User ID:</strong><br />
+                    <small class="text-muted font-monospace">@Model.UserId</small>
+                </p>
+                <p>
+                    <strong>Created Date:</strong><br />
+                    <small class="text-muted">@Model.CreatedDate.ToString("MMM dd, yyyy HH:mm")</small>
+                </p>
+                <p>
+                    <strong>Last Login:</strong><br />
+                    <small class="text-muted">
+                        @(Model.LastLoginDate?.ToString("MMM dd, yyyy HH:mm") ?? "Never")
+                    </small>
+                </p>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a asp-action="Edit" asp-route-id="@Model.UserId" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Edit Customer
+                    </a>
+                    <a asp-action="Index" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to List
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

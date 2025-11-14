@@ -16,6 +16,7 @@ namespace ABCRetailers
             builder.Services.AddScoped<IFunctionsApi, FunctionsApiClient>(); // Add this line
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IOrderService, OrderService>();
+            builder.Services.AddScoped<ISqlDataService, SqlDataService>();
             // Register FunctionsApiClient with HttpClient configuration
             builder.Services.AddHttpClient<IFunctionsApi, FunctionsApiClient>(client =>
             {

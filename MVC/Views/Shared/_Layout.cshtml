@@ -11,7 +11,7 @@
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
-    <header>
+    <header class="sticky-header">
         <nav class="navbar navbar-expand-sm navbar-dark bg-dark">
             <div class="container-fluid">
                 <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
@@ -21,7 +21,7 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
-                    <!-- Customer Navigation -->
+                    <!-- Common Navigation for All Users -->
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Home" asp-action="Index">
@@ -33,66 +33,48 @@
                                 <i class="fas fa-shopping-bag"></i> Shop
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Cart" asp-action="Index">
-                                <i class="fas fa-shopping-cart"></i> Cart
-                                <span id="cartItemCount" class="badge bg-primary rounded-pill">0</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a class="nav-link" asp-controller="Upload" asp-action="Index">
-                                <i class="fas fa-upload"></i> File Upload
-                            </a>
-                        </li>
                     </ul>
 
                     <!-- Manager Navigation (Only for Admin/Manager users) -->
                     @if (User.Identity.IsAuthenticated && (User.IsInRole("Admin") || User.IsInRole("Manager")))
                     {
                         <ul class="navbar-nav me-3">
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle text-warning" href="#" role="button" data-bs-toggle="dropdown">
-                                    <i class="fas fa-cog"></i> Management
+                            <li class="nav-item">
+                                <a class="nav-link text-warning" asp-controller="Product" asp-action="Index">
+                                    <i class="fas fa-box"></i> Products
                                 </a>
-                                <ul class="dropdown-menu">
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="Product" asp-action="Index">
-                                            <i class="fas fa-box"></i> Manage Products
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="Customer" asp-action="Index">
-                                            <i class="fas fa-users"></i> Manage Customers
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="Order" asp-action="Index">
-                                            <i class="fas fa-shopping-cart"></i> Manage Orders
-                                        </a>
-                                    </li>
-                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-warning" asp-controller="Customer" asp-action="Index">
+                                    <i class="fas fa-users"></i> Customers
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-warning" asp-controller="Order" asp-action="Index">
+                                    <i class="fas fa-shopping-cart"></i> Orders
+                                </a>
                             </li>
                         </ul>
                     }
                     else if (User.Identity.IsAuthenticated)
                     {
+                        <!-- Customer Navigation -->
                         <ul class="navbar-nav me-3">
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle text-warning" href="#" role="button" data-bs-toggle="dropdown">
-                                    <i class="fas fa-cog"></i> Customer
+                            <li class="nav-item">
+                                <a class="nav-link text-warning" asp-controller="Cart" asp-action="Index">
+                                    <i class="fas fa-shopping-cart"></i> My Cart
                                 </a>
-                                <ul class="dropdown-menu">
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="Cart" asp-action="Index">
-                                            <i class="fas fa-shopping-cart"></i> My Cart
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" asp-controller="Cart" asp-action="OrderHistory">
-                                            <i class="fas fa-history"></i> Order History
-                                        </a>
-                                    </li>
-                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-warning" asp-controller="Cart" asp-action="OrderHistory">
+                                    <i class="fas fa-history"></i> Order History
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link text-warning" asp-controller="Upload" asp-action="Index">
+                                    <i class="fas fa-upload"></i> File Upload
+                                </a>
                             </li>
                         </ul>
                     }
@@ -101,29 +83,28 @@
                     <ul class="navbar-nav">
                         @if (User.Identity.IsAuthenticated)
                         {
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                    <i class="fas fa-user"></i> @User.Identity.Name
-                                </a>
-                                <ul class="dropdown-menu">
-                                    
-                                    <li><hr class="dropdown-divider"></li>
-                                    @if (User.Identity.IsAuthenticated && User.IsInRole("Customer"))
-                                    {
-                                        <li class="nav-item">
-                                            <a class="dropdown-item" asp-controller="CustomerAccount" asp-action="MyAccount">
-                                                <i class="fas fa-user"></i> My Account
-                                            </a>
-                                        </li>
-                                    }
-                                    <li>
-                                        <form asp-controller="Auth" asp-action="Logout" method="post">
-                                            <button type="submit" class="dropdown-item">
-                                                <i class="fas fa-sign-out-alt"></i> Logout
-                                            </button>
-                                        </form>
-                                    </li>
-                                </ul>
+                            @if (User.IsInRole("Customer"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="CustomerAccount" asp-action="MyAccount">
+                                        <i class="fas fa-user"></i> @User.Identity.Name
+                                    </a>
+                                </li>
+                            }
+                            else
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link">
+                                        <i class="fas fa-user"></i> @User.Identity.Name
+                                    </a>
+                                </li>
+                            }
+                            <li class="nav-item">
+                                <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">
+                                    <button type="submit" class="nav-link btn btn-link text-light border-0 p-0 ms-2">
+                                        <i class="fas fa-sign-out-alt"></i> Logout
+                                    </button>
+                                </form>
                             </li>
                         }
                         else
@@ -147,7 +128,7 @@
         </nav>
     </header>
 
-    <div class="container-fluid">
+    <div class="container-fluid main-content">
         <main role="main" class="pb-3">
             <!-- Alert Messages -->
             @if (TempData["Success"] != null)
@@ -169,7 +150,7 @@
         </main>
     </div>
 
-    <footer class="border-top footer text-muted bg-light">
+    <footer class="sticky-footer border-top text-muted bg-light">
         <div class="container">
             <div class="row py-3">
                 <div class="col-md-6">
@@ -218,3 +199,128 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
+
+<style>
+    /* Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
+    for details on configuring this project to bundle and minify static web assets. */
+
+    a.navbar-brand {
+        white-space: normal;
+        text-align: center;
+        word-break: break-all;
+    }
+
+    a {
+        color: #0077cc;
+    }
+
+    .btn-primary {
+        color: #fff;
+        background-color: #1b6ec2;
+        border-color: #1861ac;
+    }
+
+    .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+        color: #fff;
+        background-color: #1b6ec2;
+        border-color: #1861ac;
+    }
+
+    .border-top {
+        border-top: 1px solid #e5e5e5;
+    }
+
+    .border-bottom {
+        border-bottom: 1px solid #e5e5e5;
+    }
+
+    .box-shadow {
+        box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
+    }
+
+    button.accept-policy {
+        font-size: 1rem;
+        line-height: inherit;
+    }
+
+    /* Sticky Header */
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 1020;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Sticky Footer */
+    .sticky-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 1010;
+        background: #f8f9fa !important;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Main Content */
+    .main-content {
+        min-height: calc(100vh - 120px);
+        padding-bottom: 20px;
+    }
+
+    /* Navigation Improvements */
+    .navbar-nav .nav-link {
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+        border-radius: 4px;
+        margin: 0 2px;
+    }
+
+        .navbar-nav .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .navbar-nav .nav-link.text-warning {
+            font-weight: 600;
+        }
+
+            .navbar-nav .nav-link.text-warning:hover {
+                color: #ffc107 !important;
+                background-color: rgba(255, 193, 7, 0.1);
+            }
+
+    /* Form button styling in nav */
+    .navbar-nav form .nav-link.btn {
+        background: none;
+        border: none;
+        text-decoration: none;
+        display: inline;
+    }
+
+        .navbar-nav form .nav-link.btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            text-decoration: none;
+        }
+
+    /* Cart badge styling */
+    #cartItemCount {
+        font-size: 0.7rem;
+        margin-left: 4px;
+        vertical-align: top;
+    }
+
+    /* Ensure proper spacing for alerts */
+    .alert {
+        margin-bottom: 1rem;
+    }
+
+    /* Footer link styling */
+    .footer a {
+        color: #6c757d;
+        text-decoration: none;
+    }
+
+        .footer a:hover {
+            color: #495057;
+            text-decoration: underline;
+        }
+</style>

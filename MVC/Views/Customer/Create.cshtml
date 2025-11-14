@@ -1,5 +1,5 @@
 ﻿<!-- Views/Customer/Create.cshtml -->
-@model ABCRetailers.Models.Customer
+@model ABCRetailers.Models.User
 @{
     ViewData["Title"] = "Create Customer";
 }
@@ -9,21 +9,22 @@
 <div class="row">
     <div class="col-md-8">
         <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group mb-3">
-                        <label asp-for="Name" class="form-label"></label>
-                        <input asp-for="Name" class="form-control" />
-                        <span asp-validation-for="Name" class="text-danger"></span>
+                        <label asp-for="FirstName" class="form-label"></label>
+                        <input asp-for="FirstName" class="form-control" />
+                        <span asp-validation-for="FirstName" class="text-danger"></span>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group mb-3">
-                        <label asp-for="Surname" class="form-label"></label>
-                        <input asp-for="Surname" class="form-control" />
-                        <span asp-validation-for="Surname" class="text-danger"></span>
+                        <label asp-for="LastName" class="form-label"></label>
+                        <input asp-for="LastName" class="form-control" />
+                        <span asp-validation-for="LastName" class="text-danger"></span>
                     </div>
                 </div>
             </div>
@@ -41,10 +42,12 @@
             </div>
 
             <div class="form-group mb-3">
-                <label asp-for="ShippingAddress" class="form-label"></label>
-                <textarea asp-for="ShippingAddress" class="form-control" rows="3"></textarea>
-                <span asp-validation-for="ShippingAddress" class="text-danger"></span>
+                <label asp-for="PasswordHash" class="form-label">Password</label>
+                <input asp-for="PasswordHash" class="form-control" type="password" />
+                <span asp-validation-for="PasswordHash" class="text-danger"></span>
+                <small class="form-text text-muted">Password will be stored securely.</small>
             </div>
+
 
             <div class="form-group">
                 <button type="submit" class="btn btn-primary">

@@ -1,5 +1,5 @@
 ﻿<!-- Views/Customer/Edit.cshtml -->
-@model ABCRetailers.Models.Customer
+@model ABCRetailers.Models.User
 @{
     ViewData["Title"] = "Edit Customer";
 }
@@ -9,30 +9,28 @@
 <div class="row">
     <div class="col-md-8">
         <form asp-action="Edit" method="post">
-            <input type="hidden" asp-for="RowKey" />
-            <input type="hidden" asp-for="PartitionKey" />
-            <input type="hidden" asp-for="ETag" />
-            <input type="hidden" asp-for="Timestamp" />
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="UserId" />
 
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
             <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> <strong>Customer ID:</strong> @Model.CustomerId.Substring(0, 8)...
+                <i class="fas fa-info-circle"></i> <strong>User ID:</strong> @Model.UserId.ToString().Substring(0, 8)...
             </div>
 
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group mb-3">
-                        <label asp-for="Name" class="form-label"></label>
-                        <input asp-for="Name" class="form-control" />
-                        <span asp-validation-for="Name" class="text-danger"></span>
+                        <label asp-for="FirstName" class="form-label"></label>
+                        <input asp-for="FirstName" class="form-control" />
+                        <span asp-validation-for="FirstName" class="text-danger"></span>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group mb-3">
-                        <label asp-for="Surname" class="form-label"></label>
-                        <input asp-for="Surname" class="form-control" />
-                        <span asp-validation-for="Surname" class="text-danger"></span>
+                        <label asp-for="LastName" class="form-label"></label>
+                        <input asp-for="LastName" class="form-control" />
+                        <span asp-validation-for="LastName" class="text-danger"></span>
                     </div>
                 </div>
             </div>
@@ -50,9 +48,10 @@
             </div>
 
             <div class="form-group mb-3">
-                <label asp-for="ShippingAddress" class="form-label"></label>
-                <textarea asp-for="ShippingAddress" class="form-control" rows="3"></textarea>
-                <span asp-validation-for="ShippingAddress" class="text-danger"></span>
+                <label asp-for="PasswordHash" class="form-label">Password</label>
+                <input asp-for="PasswordHash" class="form-control" type="password" />
+                <span asp-validation-for="PasswordHash" class="text-danger"></span>
+                <small class="form-text text-muted">Leave blank to keep current password.</small>
             </div>
 
             <div class="form-group">
@@ -73,13 +72,28 @@
             </div>
             <div class="card-body">
                 <p>
-                    <strong>Created:</strong><br />
-                    <small class="text-muted">@Model.Timestamp?.ToString("MMM dd, yyyy HH:mm")</small>
+                    <strong>Status:</strong><br />
+                    <span class="badge @(Model.IsActive ? "bg-success" : "bg-danger")">
+                        @(Model.IsActive ? "Active" : "Inactive")
+                    </span>
                 </p>
-
                 <p>
-                    <strong>Full Customer ID:</strong><br />
-                    <small class="text-muted font-monospace">@Model.CustomerId</small>
+                    <strong>Role:</strong><br />
+                    <span class="badge bg-info">@Model.Role</span>
+                </p>
+                <p>
+                    <strong>Created:</strong><br />
+                    <small class="text-muted">@Model.CreatedDate.ToString("MMM dd, yyyy HH:mm")</small>
+                </p>
+                <p>
+                    <strong>Last Login:</strong><br />
+                    <small class="text-muted">
+                        @(Model.LastLoginDate?.ToString("MMM dd, yyyy HH:mm") ?? "Never")
+                    </small>
+                </p>
+                <p>
+                    <strong>Full User ID:</strong><br />
+                    <small class="text-muted font-monospace">@Model.UserId</small>
                 </p>
             </div>
         </div>
