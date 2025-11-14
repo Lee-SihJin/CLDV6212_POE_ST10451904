@@ -12,6 +12,9 @@ namespace ABCRetailers
 
             // Add services to the container.
             builder.Services.AddControllersWithViews();
+            builder.Services.AddScoped<IShoppingCartService, ShoppingCartService>();
+            builder.Services.AddScoped<IFunctionsApi, FunctionsApiClient>(); // Add this line
+            builder.Services.AddScoped<IAuthService, AuthService>();
 
             // Register FunctionsApiClient with HttpClient configuration
             builder.Services.AddHttpClient<IFunctionsApi, FunctionsApiClient>(client =>

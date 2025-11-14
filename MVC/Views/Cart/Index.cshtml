@@ -3,6 +3,30 @@
     ViewData["Title"] = "Shopping Cart";
 }
 
+<style>
+    .btn-disabled-custom {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .stock-warning {
+        font-size: 0.8rem;
+        color: #dc3545;
+    }
+
+    .quantity-input-wrapper {
+        position: relative;
+    }
+
+    .max-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        font-size: 0.6rem;
+        padding: 2px 6px;
+    }
+</style>
+
 <div class="container mt-4">
     <h2><i class="fas fa-shopping-cart"></i> Shopping Cart</h2>
 
@@ -17,21 +41,31 @@
                     <div class="card-body">
                         @foreach (var item in Model.Items)
                         {
-                            <div class="cart-item row align-items-center mb-3 pb-3 border-bottom">
-                                <div class="col-md-6">
+                            <div class="cart-item row align-items-center mb-3 pb-3 border-bottom" data-product-id="@item.ProductId" id="cart-item-@item.CartItemId">
+                                <div class="col-md-5">
                                     <h6>@item.ProductName</h6>
                                     <small class="text-muted">Product ID: @item.ProductId</small>
+                                    <div class="stock-warning mt-1" id="stock-warning-@item.ProductId" style="display: none;">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <span id="stock-message-@item.ProductId"></span>
+                                    </div>
                                 </div>
                                 <div class="col-md-2">
                                     <span class="fw-bold text-success">@item.UnitPrice.ToString("C")</span>
                                 </div>
-                                <div class="col-md-2">
-                                    <form method="post" asp-action="UpdateQuantity" class="d-inline">
-                                        <input type="hidden" name="cartItemId" value="@item.CartItemId" />
-                                        <input type="number" name="quantity" value="@item.Quantity"
-                                               min="1" max="100" class="form-control form-control-sm"
-                                               onchange="this.form.submit()" />
-                                    </form>
+                                <div class="col-md-3">
+                                    <div class="quantity-input-wrapper">
+                                        <form method="post" asp-action="UpdateQuantity" class="d-inline" id="update-form-@item.CartItemId">
+                                            <input type="hidden" name="cartItemId" value="@item.CartItemId" />
+                                            <input type="number" name="quantity" value="@item.Quantity"
+                                                   min="1" class="form-control form-control-sm quantity-input"
+                                                   data-product-id="@item.ProductId"
+                                                   data-cart-item-id="@item.CartItemId"
+                                                   onchange="validateAndUpdateQuantity('@item.ProductId', '@item.CartItemId', this.value)" />
+                                        </form>
+                                        <span class="badge bg-warning max-badge" id="max-badge-@item.ProductId" style="display: none;">MAX</span>
+                                    </div>
+                                    <small class="text-muted" id="available-stock-@item.ProductId"></small>
                                 </div>
                                 <div class="col-md-2">
                                     <span class="fw-bold">@item.TotalPrice.ToString("C")</span>
@@ -62,10 +96,17 @@
                             <strong>Total:</strong>
                             <strong class="text-success h5">@Model.TotalPrice.ToString("C")</strong>
                         </div>
-                        <a asp-action="CompleteOrder" class="btn btn-success btn-lg">
+
+                        <!-- Stock Validation Alert -->
+                        <div class="alert alert-warning" id="cartStockAlert" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span id="cartStockMessage">Some items in your cart exceed available stock. Please update quantities before proceeding.</span>
+                        </div>
+
+                        <a asp-action="CompleteOrder" class="btn btn-success btn-lg w-100 mb-2" id="completeOrderButton">
                             <i class="fas fa-check-circle"></i> Complete Order
                         </a>
-                        <a asp-controller="Store" asp-action="Index" class="btn btn-outline-primary">
+                        <a asp-controller="Store" asp-action="Index" class="btn btn-outline-primary w-100 mb-2">
                             <i class="fas fa-shopping-bag"></i> Continue Shopping
                         </a>
                         <form method="post" asp-action="ClearCart" class="mt-2">
@@ -86,3 +127,185 @@
         </div>
     }
 </div>
+
+@section Scripts {
+    <script>
+        // Store product stock information
+        let productStockInfo = {};
+
+        // Get stock information for all products in cart
+        async function updateAllProductStockInfo() {
+            const productIds = @Html.Raw(Json.Serialize(Model.Items.Select(i => i.ProductId).Distinct()));
+
+            for (const productId of productIds) {
+                await updateProductStockInfo(productId);
+            }
+
+            // Validate entire cart after updating all stock info
+            validateCartStock();
+        }
+
+        // Get stock information for a specific product
+        async function updateProductStockInfo(productId) {
+            try {
+                const response = await fetch(`/Cart/GetProductStockInfo?productId=${productId}`);
+                if (response.ok) {
+                    const stockInfo = await response.json();
+                    productStockInfo[productId] = stockInfo;
+
+                    // Update UI for this product
+                    updateProductQuantityLimits(productId, stockInfo);
+                }
+            } catch (error) {
+                console.error('Error updating stock info for product:', productId, error);
+            }
+        }
+
+        // Update quantity limits for a specific product
+        function updateProductQuantityLimits(productId, stockInfo) {
+            const quantityInput = document.querySelector(`input[data-product-id="${productId}"]`);
+            const maxBadge = document.getElementById(`max-badge-${productId}`);
+            const stockWarning = document.getElementById(`stock-warning-${productId}`);
+            const stockMessage = document.getElementById(`stock-message-${productId}`);
+            const availableStock = document.getElementById(`available-stock-${productId}`);
+
+            if (quantityInput && stockInfo) {
+                const currentQuantity = parseInt(quantityInput.value) || 0;
+                const stockAvailable = stockInfo.stockAvailable || 0;
+
+                // Update available stock display
+                if (availableStock) {
+                    availableStock.textContent = `Available: ${stockAvailable}`;
+                }
+
+                // Update input max attribute
+                quantityInput.max = stockAvailable;
+
+                if (currentQuantity > stockAvailable) {
+                    // Quantity exceeds available stock
+                    quantityInput.classList.add('is-invalid');
+                    maxBadge.style.display = 'block';
+                    stockWarning.style.display = 'block';
+                    stockMessage.textContent = `Only ${stockAvailable} available in stock`;
+
+                } else if (currentQuantity === stockAvailable) {
+                    // Quantity equals available stock (max reached)
+                    quantityInput.classList.remove('is-invalid');
+                    maxBadge.style.display = 'block';
+                    stockWarning.style.display = 'none';
+
+                } else {
+                    // Quantity is within limits
+                    quantityInput.classList.remove('is-invalid');
+                    maxBadge.style.display = 'none';
+                    stockWarning.style.display = 'none';
+                }
+            }
+        }
+
+        // Validate and update quantity
+        async function validateAndUpdateQuantity(productId, cartItemId, newQuantity) {
+            const quantityInput = document.querySelector(`input[data-product-id="${productId}"]`);
+            const form = document.getElementById(`update-form-${cartItemId}`);
+
+            // Ensure we have the latest stock info
+            await updateProductStockInfo(productId);
+
+            const stockInfo = productStockInfo[productId];
+            if (stockInfo) {
+                const stockAvailable = stockInfo.stockAvailable || 0;
+                const newQty = parseInt(newQuantity) || 0;
+
+                if (newQty > stockAvailable) {
+                    // Quantity exceeds available stock - revert to max available
+                    quantityInput.value = stockAvailable;
+                    alert(`Only ${stockAvailable} items available in stock. Quantity adjusted to maximum available.`);
+
+                    // Update the form with corrected quantity
+                    setTimeout(() => {
+                        form.submit();
+                    }, 100);
+                    return;
+                }
+
+                if (newQty < 1) {
+                    // Quantity too low - set to 1
+                    quantityInput.value = 1;
+                    alert('Quantity must be at least 1.');
+                    return;
+                }
+            }
+
+            // Submit the form if validation passes
+            form.submit();
+        }
+
+        // Validate entire cart stock
+        function validateCartStock() {
+            let hasStockIssues = false;
+            const completeOrderButton = document.getElementById('completeOrderButton');
+            const cartStockAlert = document.getElementById('cartStockAlert');
+            const cartStockMessage = document.getElementById('cartStockMessage');
+
+            // Check each product in the cart
+            @foreach (var item in Model.Items)
+            {
+                    <text>
+                    const productId = '@item.ProductId';
+                    const stockInfo = productStockInfo[productId];
+                    if (stockInfo) {
+                        const currentQuantity = @item.Quantity;
+                        const stockAvailable = stockInfo.stockAvailable || 0;
+
+                        if (currentQuantity > stockAvailable) {
+                            hasStockIssues = true;
+                        }
+                    }
+                    </text>
+            }
+
+            // Update UI based on stock validation
+            if (hasStockIssues) {
+                completeOrderButton.disabled = true;
+                completeOrderButton.classList.add('btn-disabled-custom');
+                cartStockAlert.style.display = 'block';
+                cartStockMessage.textContent = 'Some items in your cart exceed available stock. Please update quantities before proceeding.';
+            } else {
+                completeOrderButton.disabled = false;
+                completeOrderButton.classList.remove('btn-disabled-custom');
+                cartStockAlert.style.display = 'none';
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAllProductStockInfo();
+
+            // Add input event listeners to all quantity inputs
+            const quantityInputs = document.querySelectorAll('.quantity-input');
+            quantityInputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    const productId = this.getAttribute('data-product-id');
+                    const cartItemId = this.getAttribute('data-cart-item-id');
+                    const stockInfo = productStockInfo[productId];
+
+                    if (stockInfo) {
+                        const newValue = parseInt(this.value) || 0;
+                        const stockAvailable = stockInfo.stockAvailable || 0;
+
+                        if (newValue > stockAvailable) {
+                            this.classList.add('is-invalid');
+                        } else {
+                            this.classList.remove('is-invalid');
+                        }
+                    }
+                });
+            });
+        });
+
+        // Update stock info when returning to cart page (in case of browser back button)
+        window.addEventListener('pageshow', function() {
+            updateAllProductStockInfo();
+        });
+    </script>
+}

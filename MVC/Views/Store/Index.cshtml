@@ -26,6 +26,11 @@
     .stock-badge {
         font-size: 0.75rem;
     }
+
+    .btn-disabled-custom {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
 </style>
 
 <div class="container mt-4">
@@ -131,19 +136,26 @@
                                     </span>
                                 </div>
 
+                                <!-- Cart Quantity Display -->
+                                <div class="mb-2">
+                                    <small class="text-muted" id="cartQuantity-@product.RowKey" style="display: none;">
+                                        <i class="fas fa-shopping-cart"></i> In your cart: <span class="fw-bold">0</span>
+                                    </small>
+                                </div>
+
                                 <!-- Action Buttons -->
                                 <div class="d-grid gap-2">
                                     @if (product.StockAvailable > 0)
                                     {
                                         if (User.Identity.IsAuthenticated)
                                         {
-                                            <form method="post" asp-controller="Cart" asp-action="AddToCart" class="d-inline">
+                                            <form method="post" asp-controller="Cart" asp-action="AddToCart" class="d-inline" id="form-@product.RowKey">
                                                 <input type="hidden" name="productId" value="@product.RowKey" />
                                                 <input type="hidden" name="productName" value="@product.ProductName" />
                                                 <input type="hidden" name="unitPrice" value="@product.Price" />
                                                 <input type="hidden" name="quantity" value="1" />
                                                 <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
-                                                <button type="submit" class="btn btn-success btn-lg">
+                                                <button type="submit" class="btn btn-success btn-lg" id="addToCart-@product.RowKey">
                                                     <i class="fas fa-cart-plus"></i> Add to Cart
                                                 </button>
                                             </form>
@@ -175,22 +187,6 @@
             }
         </div>
     }
-    else
-    {
-        <div class="text-center py-5">
-            <i class="fas fa-search fa-4x text-muted mb-4"></i>
-            <h3 class="text-muted">No products found</h3>
-            <p class="text-muted lead">
-                @(!string.IsNullOrEmpty(ViewBag.SearchTerm) ? "Try adjusting your search terms or browse all products." : "We're restocking our inventory. Please check back soon!")
-            </p>
-            @if (!string.IsNullOrEmpty(ViewBag.SearchTerm))
-            {
-                <a asp-action="Index" class="btn btn-primary btn-lg">
-                    <i class="fas fa-list"></i> Browse All Products
-                </a>
-            }
-        </div>
-    }
 </div>
 
 @section Scripts {
@@ -214,9 +210,150 @@
             }
         }
 
-        // Update cart badge on page load
+        // Get cart quantities for all products and update UI
+        async function updateCartQuantities() {
+            try {
+                const response = await fetch('/Cart/GetCartProductQuantities');
+                if (response.ok) {
+                    const quantities = await response.json();
+
+                    // Update quantities on product cards and disable buttons if needed
+                    Object.keys(quantities).forEach(productId => {
+                        const quantityElement = document.getElementById(`cartQuantity-${productId}`);
+                        const addToCartButton = document.getElementById(`addToCart-${productId}`);
+
+                        if (quantityElement) {
+                            const span = quantityElement.querySelector('span');
+                            if (span) {
+                                span.textContent = quantities[productId];
+                                quantityElement.style.display = 'block';
+                            }
+                        }
+
+                        // Check if we need to disable the button
+                        checkAndDisableButton(productId, quantities[productId]);
+                    });
+                }
+            } catch (error) {
+                console.error('Error updating cart quantities:', error);
+            }
+        }
+
+        // Check if button should be disabled and disable it
+        async function checkAndDisableButton(productId, currentCartQuantity = null) {
+            try {
+                // If currentCartQuantity is not provided, fetch it
+                if (currentCartQuantity === null) {
+                    const response = await fetch(`/Cart/GetProductStockInfo?productId=${productId}`);
+                    if (response.ok) {
+                        const stockInfo = await response.json();
+                        currentCartQuantity = stockInfo.currentCartQuantity || 0;
+                    }
+                }
+
+                const addToCartButton = document.getElementById(`addToCart-${productId}`);
+                const quantityElement = document.getElementById(`cartQuantity-${productId}`);
+
+                if (addToCartButton) {
+                    const response = await fetch(`/Cart/GetProductStockInfo?productId=${productId}`);
+                    if (response.ok) {
+                        const stockInfo = await response.json();
+
+                        // If cart quantity equals or exceeds stock, disable the button
+                        if (currentCartQuantity >= stockInfo.stockAvailable) {
+                            addToCartButton.disabled = true;
+                            addToCartButton.classList.add('btn-disabled-custom');
+                            addToCartButton.innerHTML = '<i class="fas fa-check-circle"></i> Max in Cart';
+
+                            // Update the cart quantity display to show limit reached
+                            if (quantityElement) {
+                                quantityElement.innerHTML = `<i class="fas fa-exclamation-triangle text-warning"></i> Maximum quantity in cart`;
+                                quantityElement.style.display = 'block';
+                            }
+                        } else {
+                            addToCartButton.disabled = false;
+                            addToCartButton.classList.remove('btn-disabled-custom');
+                            addToCartButton.innerHTML = '<i class="fas fa-cart-plus"></i> Add to Cart';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking button state:', error);
+            }
+        }
+
+        // Validate stock before adding to cart (for index page)
+        async function validateStock(productId, form) {
+            try {
+                // Get stock info from server
+                const response = await fetch(`/Cart/GetProductStockInfo?productId=${productId}`);
+                if (response.ok) {
+                    const stockInfo = await response.json();
+                    const quantity = 1; // For index page, we're always adding 1
+
+                    if (stockInfo.stockAvailable <= 0) {
+                        alert('This product is out of stock.');
+                        return false;
+                    }
+
+                    if (stockInfo.currentCartQuantity + quantity > stockInfo.stockAvailable) {
+                        alert(`Cannot add to cart. You already have ${stockInfo.currentCartQuantity} in your cart, and only ${stockInfo.stockAvailable} available in stock.`);
+                        return false;
+                    }
+
+                    return true;
+                }
+            } catch (error) {
+                console.error('Error validating stock:', error);
+            }
+
+            return true; // Allow submission if validation fails (server will catch it)
+        }
+
+        // Enhanced add to cart with validation
+        async function addToCartWithValidation(productId, form) {
+            const isValid = await validateStock(productId, form);
+            if (isValid) {
+                // Show loading state
+                const button = form.querySelector('button[type="submit"]');
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+                button.disabled = true;
+
+                // Submit the form
+                form.submit();
+
+                // After submission, the page will reload and the button will be updated
+                return true;
+            }
+            return false; // Prevent form submission
+        }
+
+        // Update all product buttons on page load
+        async function updateAllProductButtons() {
+            try {
+                const response = await fetch('/Cart/GetCartProductQuantities');
+                if (response.ok) {
+                    const quantities = await response.json();
+
+                    // For each product on the page, check and update button state
+                    @foreach (var product in Model)
+                    {
+                            <text>
+                            checkAndDisableButton('@product.RowKey', quantities['@product.RowKey'] || 0);
+                            </text>
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating product buttons:', error);
+            }
+        }
+
+        // Update cart badge and quantities on page load
         document.addEventListener('DOMContentLoaded', function() {
             updateCartBadge();
+            updateCartQuantities();
+            updateAllProductButtons();
         });
     </script>
 }

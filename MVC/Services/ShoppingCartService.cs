@@ -254,6 +254,22 @@ namespace ABCRetailers.Services
 
             try
             {
+                // Validate stock availability before processing order
+                foreach (var item in cart.Items)
+                {
+                    var product = await _functionsApi.GetEntityAsync<Product>("Products", "Product", item.ProductId);
+                    if (product == null)
+                    {
+                        throw new InvalidOperationException($"Product {item.ProductName} not found.");
+                    }
+
+                    if (product.StockAvailable < item.Quantity)
+                    {
+                        throw new InvalidOperationException(
+                            $"Insufficient stock for {item.ProductName}. Available: {product.StockAvailable}, Requested: {item.Quantity}");
+                    }
+                }
+
                 // Create order in SQL database
                 var order = new CustomerOrder
                 {
@@ -263,16 +279,16 @@ namespace ABCRetailers.Services
                     Status = "Completed",
                     ShippingAddress = orderDetails.ShippingAddress,
                     OrderDate = DateTime.UtcNow,
-                    PaymentStatus = "Not Required" // Added missing property
+                    PaymentStatus = "Not Required"
                 };
 
                 // Fixed SQL query with correct parameters
                 await connection.ExecuteAsync(
                     @"INSERT INTO Orders (OrderId, UserId, TotalAmount, Status, ShippingAddress, OrderDate, PaymentStatus) 
-              VALUES (@OrderId, @UserId, @TotalAmount, @Status, @ShippingAddress, @OrderDate, @PaymentStatus)",
+      VALUES (@OrderId, @UserId, @TotalAmount, @Status, @ShippingAddress, @OrderDate, @PaymentStatus)",
                     order, transaction);
 
-                // Add order items
+                // Add order items and update product stock
                 foreach (var item in cart.Items)
                 {
                     var orderItem = new OrderItem
@@ -288,8 +304,35 @@ namespace ABCRetailers.Services
 
                     await connection.ExecuteAsync(
                         @"INSERT INTO OrderItems (OrderItemId, OrderId, ProductId, ProductName, Quantity, UnitPrice, TotalPrice) 
-                  VALUES (@OrderItemId, @OrderId, @ProductId, @ProductName, @Quantity, @UnitPrice, @TotalPrice)",
+          VALUES (@OrderItemId, @OrderId, @ProductId, @ProductName, @Quantity, @UnitPrice, @TotalPrice)",
                         orderItem, transaction);
+
+                    // Update product stock in Azure Table Storage
+                    try
+                    {
+                        var product = await _functionsApi.GetEntityAsync<Product>("Products", "Product", item.ProductId);
+                        if (product != null)
+                        {
+                            // Decrease the stock available
+                            product.StockAvailable -= item.Quantity;
+
+                            // Update the product in Azure Table Storage
+                            await _functionsApi.UpdateEntityAsync("Products", product);
+
+                            _logger.LogInformation("Updated stock for product {ProductId}: New stock = {StockAvailable}",
+                                item.ProductId, product.StockAvailable);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Product {ProductId} not found in Azure Table Storage during stock update", item.ProductId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to update stock for product {ProductId}", item.ProductId);
+                        // Don't throw here - we want to continue with other products
+                        // The order is already created, but stock wasn't updated
+                    }
                 }
 
                 // Create order in Table Storage via Functions API
@@ -305,7 +348,7 @@ namespace ABCRetailers.Services
                         Quantity = cart.Items.Sum(item => item.Quantity),
                         UnitPrice = (double)order.TotalAmount,
                         TotalPrice = (double)order.TotalAmount,
-                        Status = "Completed",
+                        Status = "Submitted",
                         OrderDate = DateTime.UtcNow
                     };
 
@@ -338,7 +381,6 @@ namespace ABCRetailers.Services
                 throw new Exception($"Failed to complete order: {ex.Message}", ex);
             }
         }
-
         public async Task<List<CustomerOrder>> GetUserOrdersAsync(Guid userId)
         {
             using var connection = new SqlConnection(_connectionString);

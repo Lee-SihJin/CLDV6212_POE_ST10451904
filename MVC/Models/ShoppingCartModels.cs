@@ -13,6 +13,13 @@ namespace ABCRetailers.Models
 
         public decimal TotalPrice => Items.Sum(item => item.TotalPrice);
         public int TotalItems => Items.Sum(item => item.Quantity);
+
+        // NEW: Get quantity for a specific product
+        public int GetProductQuantity(string productId)
+        {
+            return Items.Where(item => item.ProductId == productId)
+                       .Sum(item => item.Quantity);
+        }
     }
 
     public class CartItem

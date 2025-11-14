@@ -17,7 +17,7 @@
             <thead class="table-dark">
                 <tr>
                     <th>Order ID</th>
-                    <th>Username</th>
+                    <th>User ID</th>
                     <th>Product</th>
                     <th>Order Date</th>
                     <th>Quantity</th>
@@ -31,7 +31,7 @@
                 {
                     <tr>
                         <td><code>@order.OrderId.Substring(0, 8)...</code></td>
-                        <td>@order.Username</td>
+                        <td>@order.CustomerId</td>
                         <td>@order.ProductName</td>
                         <td>@order.OrderDate.ToString("MMM dd, yyyy")</td>
                         <td>@order.Quantity</td>
@@ -150,31 +150,27 @@ else
             new bootstrap.Modal(document.getElementById('deleteModal')).show();
         }
 
-        async function updateOrderStatus(orderRowKey, newStatus) {
+                async function updateOrderStatus(orderRowKey, newStatus) {
             if (confirm(`Are you sure you want to change the status to "${newStatus}"?`)) {
                 try {
-                    // First, get the complete order object
-                    const order = await getOrder(orderRowKey);
-                    if (!order) {
-                        alert('Error: Could not retrieve order details');
-                        return;
-                    }
+                    // Create a minimal order object with only the required properties
+                    const orderUpdate = {
+                        rowKey: orderRowKey,
+                        status: newStatus
+                    };
 
-                    // Update the status in the order object
-                    order.status = newStatus;
-
-                    // Send the complete order object for update
+                    // Send the order update object
                     const response = await fetch('/Order/UpdateOrderStatus', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
                         },
-                        body: JSON.stringify(order)
+                        body: JSON.stringify(orderUpdate)
                     });
 
                     if (!response.ok) {
-                        throw new Error('Network response was not ok');
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
 
                     const data = await response.json();

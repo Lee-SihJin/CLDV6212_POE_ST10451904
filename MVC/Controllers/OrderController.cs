@@ -125,7 +125,7 @@ namespace ABCRetailers.Controllers
 
             try
             {
-                var order = await _functionsApi.GetEntityAsync<Order>("Orders", "Order", id);
+                var order = await _functionsApi.GetEntityAsync<Order>("Orders", "Orders", id);
                 if (order == null)
                     return NotFound();
 
@@ -288,7 +288,7 @@ namespace ABCRetailers.Controllers
                 }
 
                 // Get the existing order to preserve other properties that might not be sent
-                var existingOrder = await _functionsApi.GetEntityAsync<Order>("Orders", "Order", order.RowKey);
+                var existingOrder = await _functionsApi.GetEntityAsync<Order>("Orders", "Orders", order.RowKey);
                 if (existingOrder == null)
                 {
                     return Json(new { success = false, message = "Order not found" });

@@ -3,6 +3,13 @@
     ViewData["Title"] = Model.ProductName;
 }
 
+<style>
+    .btn-disabled-custom {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+</style>
+
 <div class="container mt-4">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -56,30 +63,46 @@
                         <h5>Product Details</h5>
                         <ul class="list-unstyled">
                             <li><strong>Product ID:</strong> <code>@Model.ProductId.Substring(0, 8)...</code></li>
-                            <li><strong>Available Stock:</strong> @Model.StockAvailable units</li>
+                            <li><strong>Available Stock:</strong> <span id="availableStock">@Model.StockAvailable</span> units</li>
+                            <li><strong>In Your Cart:</strong> <span id="cartQuantityDisplay">0</span> units</li>
                         </ul>
                     </div>
                     @if (Model.StockAvailable > 0)
                     {
                         if (User.Identity.IsAuthenticated)
                         {
-                            <form method="post" asp-controller="Cart" asp-action="AddToCart" class="row g-3">
+                            <form method="post" asp-controller="Cart" asp-action="AddToCart" class="row g-3" id="addToCartForm">
                                 <input type="hidden" name="productId" value="@Model.RowKey" />
                                 <input type="hidden" name="productName" value="@Model.ProductName" />
                                 <input type="hidden" name="unitPrice" value="@Model.Price" />
+
+                                <!-- Cart Quantity Info -->
+                                <div class="col-12 mb-2">
+                                    <div class="alert alert-info py-2" id="cartLimitAlert" style="display: none;">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span id="cartLimitMessage">You have reached the maximum quantity for this item.</span>
+                                    </div>
+                                </div>
 
                                 <div class="col-auto">
                                     <label for="quantity" class="col-form-label"><strong>Quantity:</strong></label>
                                 </div>
                                 <div class="col-auto">
                                     <input type="number" name="quantity" id="quantity"
-                                    class="form-control" value="1" min="1" max="@Model.StockAvailable"
-                                    style="width: 80px;">
+                                           class="form-control" value="1" min="1"
+                                           style="width: 80px;">
                                 </div>
                                 <div class="col-auto">
-                                    <button type="submit" class="btn btn-success btn-lg">
+                                    <button type="submit" class="btn btn-success btn-lg" id="addToCartButton">
                                         <i class="fas fa-cart-plus"></i> Add to Cart
                                     </button>
+                                </div>
+
+                                <!-- Available Stock Info -->
+                                <div class="col-12 mt-2">
+                                    <small class="text-muted">
+                                        Maximum available to add: <span id="maxAvailable">@Model.StockAvailable</span> units
+                                    </small>
                                 </div>
                             </form>
                         }
@@ -116,15 +139,130 @@
 
 @section Scripts {
     <script>
-        // Update max quantity based on stock
-        document.addEventListener('DOMContentLoaded', function() {
-            const quantityInput = document.getElementById('quantity');
-            const stockAvailable = @Model.StockAvailable;
+        let currentCartQuantity = 0;
+        let stockAvailable = @Model.StockAvailable;
 
-            quantityInput.addEventListener('change', function() {
-                if (this.value > stockAvailable) {
-                    this.value = stockAvailable;
-                    alert(`Only ${stockAvailable} items available in stock.`);
+        // Get current cart quantity and update UI
+        async function updateCartQuantity() {
+            try {
+                const response = await fetch(`/Cart/GetProductQuantity?productId=@Model.RowKey`);
+                if (response.ok) {
+                    currentCartQuantity = await response.json();
+                    document.getElementById('cartQuantityDisplay').textContent = currentCartQuantity;
+
+                    // Update UI based on cart quantity
+                    updateQuantityLimits();
+                }
+            } catch (error) {
+                console.error('Error updating cart quantity:', error);
+            }
+        }
+
+        // Update quantity limits and button state
+        function updateQuantityLimits() {
+            const quantityInput = document.getElementById('quantity');
+            const addToCartButton = document.getElementById('addToCartButton');
+            const cartLimitAlert = document.getElementById('cartLimitAlert');
+            const maxAvailableSpan = document.getElementById('maxAvailable');
+            const cartLimitMessage = document.getElementById('cartLimitMessage');
+
+            const maxAllowed = stockAvailable - currentCartQuantity;
+
+            // Update max available display
+            maxAvailableSpan.textContent = maxAllowed;
+
+            if (maxAllowed <= 0) {
+                // Completely disable adding to cart
+                quantityInput.disabled = true;
+                quantityInput.value = 0;
+                addToCartButton.disabled = true;
+                addToCartButton.classList.add('btn-disabled-custom');
+                addToCartButton.innerHTML = '<i class="fas fa-check-circle"></i> Max in Cart';
+
+                // Show alert
+                cartLimitAlert.style.display = 'block';
+                cartLimitMessage.textContent = `You already have ${currentCartQuantity} items in your cart. Maximum quantity reached.`;
+
+            } else {
+                // Enable controls with limits
+                quantityInput.disabled = false;
+                quantityInput.max = maxAllowed;
+                addToCartButton.disabled = false;
+                addToCartButton.classList.remove('btn-disabled-custom');
+                addToCartButton.innerHTML = '<i class="fas fa-cart-plus"></i> Add to Cart';
+
+                // Hide alert if quantity is within limits
+                cartLimitAlert.style.display = 'none';
+
+                // Ensure current quantity doesn't exceed max allowed
+                if (quantityInput.value > maxAllowed) {
+                    quantityInput.value = maxAllowed;
+                }
+
+                // If quantity is 0 but maxAllowed > 0, set to 1
+                if (quantityInput.value <= 0 && maxAllowed > 0) {
+                    quantityInput.value = 1;
+                }
+            }
+        }
+
+        // Validate before form submission
+        async function validateAddToCart(form) {
+            const quantityInput = document.getElementById('quantity');
+            const quantity = parseInt(quantityInput.value) || 0;
+
+            if (quantity <= 0) {
+                alert('Please enter a valid quantity.');
+                return false;
+            }
+
+            if (currentCartQuantity + quantity > stockAvailable) {
+                alert(`Cannot add ${quantity} items. You already have ${currentCartQuantity} in your cart, and only ${stockAvailable} available in stock.`);
+                return false;
+            }
+
+            // Show loading state
+            const button = document.getElementById('addToCartButton');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+            button.disabled = true;
+
+            return true;
+        }
+
+        // Quantity input change handler
+        function handleQuantityChange() {
+            const quantityInput = document.getElementById('quantity');
+            const quantity = parseInt(quantityInput.value) || 0;
+            const maxAllowed = stockAvailable - currentCartQuantity;
+
+            if (quantity > maxAllowed) {
+                quantityInput.value = maxAllowed;
+                alert(`You can only add ${maxAllowed} more items to your cart.`);
+            }
+
+            if (quantity < 1 && maxAllowed > 0) {
+                quantityInput.value = 1;
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCartQuantity();
+
+            const quantityInput = document.getElementById('quantity');
+            const addToCartForm = document.getElementById('addToCartForm');
+
+            // Add event listeners
+            quantityInput.addEventListener('change', handleQuantityChange);
+            quantityInput.addEventListener('input', handleQuantityChange);
+
+            // Add form submission handler
+            addToCartForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const isValid = await validateAddToCart(this);
+                if (isValid) {
+                    this.submit();
                 }
             });
         });

@@ -13,12 +13,14 @@ namespace ABCRetailers.Controllers
     {
         private readonly IShoppingCartService _cartService;
         private readonly IAuthService _authService;
+        private readonly IFunctionsApi _functionsApi; // Add this
         private readonly ILogger<CartController> _logger;
 
-        public CartController(IShoppingCartService cartService, IAuthService authService, ILogger<CartController> logger)
+        public CartController(IShoppingCartService cartService, IAuthService authService, IFunctionsApi functionsApi, ILogger<CartController> logger)
         {
             _cartService = cartService;
             _authService = authService;
+            _functionsApi = functionsApi; // Add this
             _logger = logger;
         }
 
@@ -47,10 +49,36 @@ namespace ABCRetailers.Controllers
                 if (quantity < 1)
                 {
                     TempData["Error"] = "Quantity must be at least 1.";
-                    return RedirectToAction("Index", "Product");
+                    return RedirectToAction("Index", "Store");
                 }
 
                 var userId = GetCurrentUserId();
+
+                // Get product to check stock availability
+                var product = await _functionsApi.GetEntityAsync<Product>("Products", "Product", productId);
+                if (product == null)
+                {
+                    TempData["Error"] = "Product not found.";
+                    return RedirectToAction("Index", "Store");
+                }
+
+                if (product.StockAvailable <= 0)
+                {
+                    TempData["Error"] = "This product is out of stock.";
+                    return RedirectToAction("Index", "Store");
+                }
+
+                // Get current cart to check existing quantities
+                var cart = await _cartService.GetCartAsync(userId);
+                var currentCartQuantity = cart.GetProductQuantity(productId);
+
+                // Check if adding would exceed stock
+                if (currentCartQuantity + quantity > product.StockAvailable)
+                {
+                    TempData["Error"] = $"Cannot add {quantity} more items. You already have {currentCartQuantity} in cart, and only {product.StockAvailable} available in stock.";
+                    return RedirectToAction("Index", "Store");
+                }
+
                 var item = new CartItem
                 {
                     ProductId = productId,
@@ -77,9 +105,41 @@ namespace ABCRetailers.Controllers
         {
             try
             {
-                if (quantity < 0)
+                if (quantity < 1)
                 {
-                    TempData["Error"] = "Quantity cannot be negative.";
+                    TempData["Error"] = "Quantity must be at least 1.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Get the cart item to find the product ID
+                var userId = GetCurrentUserId();
+                var cart = await _cartService.GetCartAsync(userId);
+                var cartItem = cart.Items.FirstOrDefault(item => item.CartItemId == cartItemId);
+
+                if (cartItem == null)
+                {
+                    TempData["Error"] = "Cart item not found.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Get product to check stock availability
+                var product = await _functionsApi.GetEntityAsync<Product>("Products", "Product", cartItem.ProductId);
+                if (product == null || product.StockAvailable <= 0)
+                {
+                    TempData["Error"] = "Product is no longer available.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                // Check if the new quantity exceeds available stock
+                var otherItemsQuantity = cart.Items
+                    .Where(item => item.ProductId == cartItem.ProductId && item.CartItemId != cartItemId)
+                    .Sum(item => item.Quantity);
+
+                var totalQuantityForProduct = otherItemsQuantity + quantity;
+
+                if (totalQuantityForProduct > product.StockAvailable)
+                {
+                    TempData["Error"] = $"Cannot update quantity. Only {product.StockAvailable} items available in stock.";
                     return RedirectToAction(nameof(Index));
                 }
 
@@ -276,6 +336,21 @@ namespace ABCRetailers.Controllers
                     ModelState.AddModelError("ShippingAddress", "Shipping address is required.");
                 }
 
+                // Validate stock before completing order
+                var cart = await _cartService.GetCartAsync(userId);
+                foreach (var item in cart.Items)
+                {
+                    var product = await _functionsApi.GetEntityAsync<Product>("Products", "Product", item.ProductId);
+                    if (product == null || product.StockAvailable <= 0)
+                    {
+                        ModelState.AddModelError("", $"{item.ProductName} is no longer available.");
+                    }
+                    else if (item.Quantity > product.StockAvailable)
+                    {
+                        ModelState.AddModelError("", $"{item.ProductName} only has {product.StockAvailable} items available, but you have {item.Quantity} in your cart.");
+                    }
+                }
+
                 if (!ModelState.IsValid)
                 {
                     // Reload cart data if validation fails
@@ -339,6 +414,82 @@ namespace ABCRetailers.Controllers
                 _logger.LogError(ex, "Error loading order history");
                 TempData["Error"] = "Error loading order history.";
                 return View(new List<CustomerOrder>());
+            }
+        }
+        [HttpGet]
+        public async Task<JsonResult> GetCartProductQuantities()
+        {
+            try
+            {
+                if (User.Identity.IsAuthenticated)
+                {
+                    var userId = GetCurrentUserId();
+                    var cart = await _cartService.GetCartAsync(userId);
+                    var quantities = cart.Items
+                        .GroupBy(item => item.ProductId)
+                        .ToDictionary(g => g.Key, g => g.Sum(item => item.Quantity));
+
+                    return Json(quantities);
+                }
+                return Json(new Dictionary<string, int>());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting cart product quantities");
+                return Json(new Dictionary<string, int>());
+            }
+        }
+
+        [HttpGet]
+        public async Task<JsonResult> GetProductQuantity(string productId)
+        {
+            try
+            {
+                if (User.Identity.IsAuthenticated)
+                {
+                    var userId = GetCurrentUserId();
+                    var cart = await _cartService.GetCartAsync(userId);
+                    var quantity = cart.GetProductQuantity(productId);
+                    return Json(quantity);
+                }
+                return Json(0);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting product quantity for {ProductId}", productId);
+                return Json(0);
+            }
+        }
+        [HttpGet]
+        public async Task<JsonResult> GetProductStockInfo(string productId)
+        {
+            try
+            {
+                var product = await _functionsApi.GetEntityAsync<Product>("Products", "Product", productId);
+                if (product != null)
+                {
+                    // Also get current cart quantity for this product
+                    if (User.Identity.IsAuthenticated)
+                    {
+                        var userId = GetCurrentUserId();
+                        var cart = await _cartService.GetCartAsync(userId);
+                        var currentCartQuantity = cart.GetProductQuantity(productId);
+
+                        return Json(new
+                        {
+                            stockAvailable = product.StockAvailable,
+                            currentCartQuantity = currentCartQuantity,
+                            productName = product.ProductName
+                        });
+                    }
+                    return Json(new { stockAvailable = product.StockAvailable, currentCartQuantity = 0 });
+                }
+                return Json(new { stockAvailable = 0, currentCartQuantity = 0 });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting product stock info for {ProductId}", productId);
+                return Json(new { stockAvailable = 0, currentCartQuantity = 0 });
             }
         }
     }

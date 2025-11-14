@@ -98,7 +98,7 @@ namespace ABCRetailers.Controllers
 
             try
             {
-                var product = await _functionsApi.UpdateEntityAsync("Products", id);
+                var product = await _functionsApi.GetEntityAsync<Product>("Products","Product",id);
                 if (product == null)
                 {
                     TempData["Error"] = "Product not found";
